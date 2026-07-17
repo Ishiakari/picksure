@@ -5,10 +5,11 @@ import {
   Text, 
   ScrollView, 
   TouchableOpacity, 
-  SafeAreaView, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  TextInput
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,12 +22,19 @@ const CATEGORIES = ['All', 'Portrait', 'OOTD', 'Street', 'Golden Hour', 'Minimal
 
 export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchActive, setIsSearchActive] = useState(false);
 
   // Filter templates based on category selection
   const filteredTemplates = TEMPLATES.filter(template => {
-    if (selectedCategory === 'All') return true;
-    if (selectedCategory === 'Portrait') return template.category === 'Cafe Vibes' || template.category === 'Editorial';
-    return template.category.toLowerCase().includes(selectedCategory.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || 
+      (selectedCategory === 'Portrait' && (template.category === 'Cafe Vibes' || template.category === 'Editorial')) ||
+      template.category.toLowerCase().includes(selectedCategory.toLowerCase());
+      
+    const matchesSearch = template.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          template.category.toLowerCase().includes(searchQuery.toLowerCase());
+                          
+    return matchesCategory && matchesSearch;
   });
 
   // Distribute templates into two columns to simulate masonry layout
@@ -49,10 +57,9 @@ export default function HomeScreen() {
   };
 
   const handleFloatingCameraPress = () => {
-    // Open camera with the first template as default
+    // Open camera without any specific template
     router.push({
       pathname: '/camera',
-      params: { id: TEMPLATES[0].id }
     });
   };
 
@@ -101,18 +108,42 @@ export default function HomeScreen() {
       
       {/* Header Section */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>PICKSURE</Text>
-          <Text style={styles.headerSubtitle}>Pick your vibe. Be sure of your shot.</Text>
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="search-outline" size={24} color="#FFF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="person-outline" size={24} color="#FFF" />
-          </TouchableOpacity>
-        </View>
+        {isSearchActive ? (
+          <View style={styles.searchContainer}>
+            <TextInput 
+              style={styles.searchInput}
+              placeholder="Search templates..."
+              placeholderTextColor="#7a7a7a"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+            />
+            <TouchableOpacity 
+              style={styles.iconButton} 
+              onPress={() => {
+                setIsSearchActive(false);
+                setSearchQuery('');
+              }}
+            >
+              <Ionicons name="close" size={20} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <View>
+              <Text style={styles.headerTitle}>PICKSURE</Text>
+              <Text style={styles.headerSubtitle}>Pick your vibe. Be sure of your shot.</Text>
+            </View>
+            <View style={styles.headerIcons}>
+              <TouchableOpacity style={styles.iconButton} onPress={() => setIsSearchActive(true)}>
+                <Ionicons name="search-outline" size={24} color="#FFF" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton}>
+                <Ionicons name="person-outline" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Category Horizontal Filter */}
@@ -208,6 +239,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#1c1c1c',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    backgroundColor: '#1c1c1c',
+    borderRadius: 20,
+    paddingLeft: 16,
+    paddingRight: 4,
+    height: 48,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 16,
   },
   categoryScroll: {
     paddingHorizontal: 20,

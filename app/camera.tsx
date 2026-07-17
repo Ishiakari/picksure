@@ -4,13 +4,13 @@ import {
   View, 
   Text, 
   TouchableOpacity, 
-  SafeAreaView, 
   StatusBar,
   Dimensions,
   Animated,
   ActivityIndicator,
   Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Camera, CameraView } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
@@ -27,19 +27,7 @@ type OpacityMode = 'Faint' | 'Medium' | 'Solid';
 
 export default function CameraScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const template = TEMPLATES.find(t => t.id === id) || TEMPLATES[0];
-
-  if (!template) {
-    return (
-      <SafeAreaView style={styles.errorContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#121212" />
-        <Text style={styles.errorText}>No templates available. Please add a template to the database first.</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={() => router.replace('/')}>
-          <Text style={styles.permissionButtonText}>Go to Home</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
+  const template = id ? TEMPLATES.find(t => t.id === id) : null;
 
   // Safe Permissions State
   const [cameraPermission, setCameraPermission] = useState<{ granted: boolean } | null>(
@@ -57,6 +45,8 @@ export default function CameraScreen() {
   const [opacityMode, setOpacityMode] = useState<OpacityMode>('Medium');
   const [capturedPhoto, setCapturedPhoto] = useState<any>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [timerMode, setTimerMode] = useState<0 | 3 | 10>(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   // Animated value for flashing dot
   const flashAnim = useRef(new Animated.Value(1)).current;
@@ -151,6 +141,10 @@ export default function CameraScreen() {
     setFlash(prev => (prev === 'off' ? 'on' : 'off'));
   };
 
+  const toggleTimer = () => {
+    setTimerMode(prev => prev === 0 ? 3 : prev === 3 ? 10 : 0);
+  };
+
   const getOverlayOpacity = () => {
     switch (opacityMode) {
       case 'Faint': return 0.25;
@@ -160,12 +154,30 @@ export default function CameraScreen() {
     }
   };
 
-  const takePhoto = async () => {
+  const handleShutterPress = () => {
+    if (timerMode > 0) {
+      let remaining = timerMode;
+      setCountdown(remaining);
+      const interval = setInterval(() => {
+        remaining -= 1;
+        setCountdown(remaining);
+        if (remaining <= 0) {
+          clearInterval(interval);
+          setCountdown(null);
+          executeCapture();
+        }
+      }, 1000);
+    } else {
+      executeCapture();
+    }
+  };
+
+  const executeCapture = async () => {
     if (Platform.OS === 'web') {
       setIsCapturing(true);
       // Simulate capture
       setTimeout(() => {
-        setCapturedPhoto(template.imageSource);
+        setCapturedPhoto(template?.imageSource || null);
         setIsCapturing(false);
       }, 600);
       return;
@@ -199,7 +211,7 @@ export default function CameraScreen() {
     return (
       <>
         {/* Translucent Reference Image Overlay */}
-        {showReferenceImage && (
+        {showReferenceImage && template && (
           <Image 
             source={template.imageSource}
             style={[StyleSheet.absoluteFill, { opacity: getOverlayOpacity() }]}
@@ -225,10 +237,19 @@ export default function CameraScreen() {
         <View style={[styles.cornerMarker, styles.bottomRightCorner]} />
 
         {/* Align Your Shot Indicator */}
-        <Animated.View style={[styles.alignIndicator, { opacity: flashAnim }]}>
-          <View style={styles.dot} />
-          <Text style={styles.alignText}>Align your shot</Text>
-        </Animated.View>
+        {template && (
+          <Animated.View style={[styles.alignIndicator, { opacity: flashAnim }]}>
+            <View style={styles.dot} />
+            <Text style={styles.alignText}>Align your shot</Text>
+          </Animated.View>
+        )}
+
+        {/* Countdown Overlay */}
+        {countdown !== null && (
+          <View style={styles.countdownOverlay}>
+            <Text style={styles.countdownText}>{countdown}</Text>
+          </View>
+        )}
 
         {/* Camera Parameter Widgets (Grid, Flash, Timer) */}
         <View style={styles.widgetBar}>
@@ -244,8 +265,15 @@ export default function CameraScreen() {
           >
             <Ionicons name={flash === 'on' ? "flash" : "flash-off"} size={20} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.widgetButton}>
-            <Ionicons name="time-outline" size={20} color="#FFF" />
+          <TouchableOpacity 
+            style={[styles.widgetButton, timerMode > 0 && styles.widgetButtonActive]}
+            onPress={toggleTimer}
+          >
+            {timerMode === 0 ? (
+               <Ionicons name="time-outline" size={20} color="#FFF" />
+            ) : (
+               <Text style={styles.timerWidgetText}>{timerMode}s</Text>
+            )}
           </TouchableOpacity>
         </View>
       </>
@@ -268,31 +296,37 @@ export default function CameraScreen() {
         </TouchableOpacity>
         
         <View style={styles.headerTextContainer}>
-          <Text style={styles.categoryName}>{template.category.toUpperCase()}</Text>
-          <Text style={styles.templateTitle}>{template.title}</Text>
+          <Text style={styles.categoryName}>{template ? template.category.toUpperCase() : 'FREE MODE'}</Text>
+          <Text style={styles.templateTitle}>{template ? template.title : 'Take a photo'}</Text>
         </View>
 
-        <TouchableOpacity 
-          style={styles.headerButton}
-          onPress={() => setShowReferenceImage(!showReferenceImage)}
-        >
-          <Ionicons 
-            name="layers-outline" 
-            size={24} 
-            color={showReferenceImage ? "#FF5C35" : "#FFF"} 
-          />
-        </TouchableOpacity>
+        {template ? (
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => setShowReferenceImage(!showReferenceImage)}
+          >
+            <Ionicons 
+              name="layers-outline" 
+              size={24} 
+              color={showReferenceImage ? "#FF5C35" : "#FFF"} 
+            />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 44 }} />
+        )}
       </View>
 
       {/* Main Camera Viewfinder Container */}
       <View style={[styles.cameraContainer, { height: CAMERA_HEIGHT }]}>
         {isWeb ? (
           <View style={StyleSheet.absoluteFill}>
-            <Image 
-              source={template.imageSource} 
-              style={[StyleSheet.absoluteFill, { opacity: 0.45 }]} 
-              contentFit="cover"
-            />
+            {template && (
+              <Image 
+                source={template.imageSource} 
+                style={[StyleSheet.absoluteFill, { opacity: 0.45 }]} 
+                contentFit="cover"
+              />
+            )}
             <View style={styles.webCameraMockBanner}>
               <Ionicons name="videocam-outline" size={16} color="#FF5C35" style={{ marginRight: 6 }} />
               <Text style={styles.webCameraMockText}>Web Viewfinder Simulator</Text>
@@ -345,8 +379,8 @@ export default function CameraScreen() {
           <TouchableOpacity 
             style={styles.shutterOuter} 
             activeOpacity={0.8}
-            onPress={takePhoto}
-            disabled={isCapturing}
+            onPress={handleShutterPress}
+            disabled={isCapturing || countdown !== null}
           >
             <View style={styles.shutterInner} />
           </TouchableOpacity>
@@ -648,5 +682,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#161616',
+  },
+  countdownOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  countdownText: {
+    fontSize: 120,
+    fontWeight: '900',
+    color: '#FFF',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 10,
+  },
+  timerWidgetText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
