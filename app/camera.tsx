@@ -8,7 +8,8 @@ import {
   Dimensions,
   Animated,
   ActivityIndicator,
-  Platform
+  Platform,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -47,6 +48,9 @@ export default function CameraScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [timerMode, setTimerMode] = useState<0 | 3 | 10>(0);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [capturedPhotosList, setCapturedPhotosList] = useState<string[]>([]);
+  const [isGalleryVisible, setIsGalleryVisible] = useState(false);
+  const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<string | null>(null);
 
   // Animated value for flashing dot
   const flashAnim = useRef(new Animated.Value(1)).current;
@@ -177,7 +181,9 @@ export default function CameraScreen() {
       setIsCapturing(true);
       // Simulate capture
       setTimeout(() => {
-        setCapturedPhoto(template?.imageSource || null);
+        const mockImg = template?.imageSource || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500';
+        setCapturedPhoto(mockImg);
+        setCapturedPhotosList(prev => [mockImg, ...prev]);
         setIsCapturing(false);
       }, 600);
       return;
@@ -191,6 +197,7 @@ export default function CameraScreen() {
         
         if (photo?.uri) {
           setCapturedPhoto(photo.uri);
+          setCapturedPhotosList(prev => [photo.uri, ...prev]);
           
           // Save to device library
           if (mediaPermission) {
@@ -222,7 +229,7 @@ export default function CameraScreen() {
 
         {/* Rule of Thirds Grid Overlay */}
         {showGrid && (
-          <View style={styles.gridOverlay}>
+          <View style={styles.gridOverlay} pointerEvents="none">
             <View style={[styles.gridLineHorizontal, { top: '33.3%' }]} />
             <View style={[styles.gridLineHorizontal, { top: '66.6%' }]} />
             <View style={[styles.gridLineVertical, { left: '33.3%' }]} />
@@ -386,7 +393,11 @@ export default function CameraScreen() {
           </TouchableOpacity>
 
           {/* Last Photo Thumbnail */}
-          <View style={styles.thumbnailContainer}>
+          <TouchableOpacity 
+            style={styles.thumbnailContainer}
+            activeOpacity={0.8}
+            onPress={() => setIsGalleryVisible(true)}
+          >
             {capturedPhoto ? (
               <Image 
                 source={capturedPhoto} 
@@ -394,11 +405,74 @@ export default function CameraScreen() {
                 contentFit="cover"
               />
             ) : (
-              <View style={styles.thumbnailPlaceholder} />
+              <View style={[styles.thumbnailPlaceholder, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="images-outline" size={20} color="#7a7a7a" />
+              </View>
             )}
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Gallery Modal Overlay */}
+      {isGalleryVisible && (
+        <View style={styles.galleryModal}>
+          <SafeAreaView style={styles.gallerySafeArea}>
+            {/* Header */}
+            <View style={styles.galleryHeader}>
+              <TouchableOpacity 
+                style={styles.headerButton} 
+                onPress={() => setIsGalleryVisible(false)}
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFF" />
+              </TouchableOpacity>
+              <Text style={styles.galleryTitle}>Session Gallery</Text>
+              <View style={{ width: 44 }} />
+            </View>
+
+            {/* Photos List */}
+            {capturedPhotosList.length === 0 ? (
+              <View style={styles.emptyGalleryContainer}>
+                <Ionicons name="images-outline" size={48} color="#444" />
+                <Text style={styles.emptyGalleryText}>No photos captured in this session yet.</Text>
+              </View>
+            ) : (
+              <ScrollView contentContainerStyle={styles.galleryGrid}>
+                {capturedPhotosList.map((uri, idx) => (
+                  <TouchableOpacity 
+                    key={idx} 
+                    style={styles.galleryCard}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedGalleryPhoto(uri)}
+                  >
+                    <Image source={uri} style={styles.galleryImage} contentFit="cover" />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </SafeAreaView>
+        </View>
+      )}
+
+      {/* Full Screen Photo Viewer */}
+      {selectedGalleryPhoto && (
+        <View style={styles.fullScreenViewer}>
+          <SafeAreaView style={styles.fullScreenSafeArea}>
+            <View style={styles.fullScreenHeader}>
+              <TouchableOpacity 
+                style={styles.headerButton} 
+                onPress={() => setSelectedGalleryPhoto(null)}
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFF" />
+              </TouchableOpacity>
+              <Text style={styles.galleryTitle}>Photo Preview</Text>
+              <View style={{ width: 44 }} />
+            </View>
+            <View style={styles.fullScreenImageContainer}>
+              <Image source={selectedGalleryPhoto} style={styles.fullScreenImage} contentFit="contain" />
+            </View>
+          </SafeAreaView>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -701,5 +775,81 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  galleryModal: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#121212',
+    zIndex: 1000,
+  },
+  gallerySafeArea: {
+    flex: 1,
+  },
+  galleryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#262626',
+  },
+  galleryTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  emptyGalleryContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 32,
+  },
+  emptyGalleryText: {
+    color: '#7a7a7a',
+    fontSize: 15,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  galleryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 8,
+    gap: 8,
+  },
+  galleryCard: {
+    width: (width - 24) / 2,
+    aspectRatio: 3 / 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1a1a1a',
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullScreenViewer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 1100,
+  },
+  fullScreenSafeArea: {
+    flex: 1,
+  },
+  fullScreenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  fullScreenImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
   },
 });
