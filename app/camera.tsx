@@ -9,7 +9,8 @@ import {
   Animated,
   ActivityIndicator,
   Platform,
-  ScrollView
+  ScrollView,
+  PanResponder
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -23,8 +24,6 @@ import { TEMPLATES } from '@/src/data/templates';
 const { width } = Dimensions.get('window');
 // Standard 3:4 aspect ratio camera container height
 const CAMERA_HEIGHT = width * 1.333;
-
-type OpacityMode = 'Faint' | 'Medium' | 'Solid';
 
 export default function CameraScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -43,7 +42,7 @@ export default function CameraScreen() {
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [showGrid, setShowGrid] = useState(true);
   const [showReferenceImage, setShowReferenceImage] = useState(true);
-  const [opacityMode, setOpacityMode] = useState<OpacityMode>('Medium');
+  const [opacityValue, setOpacityValue] = useState<number>(55);
   const [capturedPhoto, setCapturedPhoto] = useState<any>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [timerMode, setTimerMode] = useState<0 | 3 | 10>(0);
@@ -51,6 +50,32 @@ export default function CameraScreen() {
   const [capturedPhotosList, setCapturedPhotosList] = useState<string[]>([]);
   const [isGalleryVisible, setIsGalleryVisible] = useState(false);
   const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<string | null>(null);
+
+  // Dynamic slider tracking variables
+  const [trackWidth, setTrackWidth] = useState(130);
+  const trackWidthRef = useRef(130);
+  const startOpacity = useRef(55);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        const touchX = evt.nativeEvent.locationX;
+        let percentage = Math.round((touchX / trackWidthRef.current) * 100);
+        percentage = Math.max(0, Math.min(100, percentage));
+        setOpacityValue(percentage);
+        startOpacity.current = percentage;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const dx = gestureState.dx;
+        const percentageChange = (dx / trackWidthRef.current) * 100;
+        let nextOpacity = Math.round(startOpacity.current + percentageChange);
+        nextOpacity = Math.max(0, Math.min(100, nextOpacity));
+        setOpacityValue(nextOpacity);
+      }
+    })
+  ).current;
 
   // Animated value for flashing dot
   const flashAnim = useRef(new Animated.Value(1)).current;
@@ -150,11 +175,14 @@ export default function CameraScreen() {
   };
 
   const getOverlayOpacity = () => {
-    switch (opacityMode) {
-      case 'Faint': return 0.25;
-      case 'Medium': return 0.55;
-      case 'Solid': return 0.85;
-      default: return 0.55;
+    return opacityValue / 100;
+  };
+
+  const onTrackLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) {
+      setTrackWidth(width);
+      trackWidthRef.current = width;
     }
   };
 
@@ -354,26 +382,36 @@ export default function CameraScreen() {
       
       {/* Control Panel Below Camera Viewport */}
       <View style={styles.controlsPanel}>
-        {/* Opacity Control Slider (Faint, Medium, Solid) */}
-        <View style={styles.opacitySelectorContainer}>
-          <Text style={styles.opacityLabel}>Overlay</Text>
-          <View style={styles.opacityRow}>
-            {(['Faint', 'Medium', 'Solid'] as OpacityMode[]).map(mode => {
-              const isActive = opacityMode === mode;
-              return (
-                <TouchableOpacity
-                  key={mode}
-                  style={[styles.opacityPill, isActive && styles.opacityPillActive]}
-                  onPress={() => setOpacityMode(mode)}
-                >
-                  <Text style={[styles.opacityPillText, isActive && styles.opacityPillTextActive]}>
-                    {mode}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* Opacity Control Slider (Custom fine-grained control) */}
+        {template && (
+          <View style={styles.opacitySelectorContainer}>
+            <Text style={styles.opacityLabel}>Opacity ({opacityValue}%)</Text>
+            <View style={styles.sliderContainer}>
+              <TouchableOpacity 
+                style={styles.adjustButton} 
+                onPress={() => setOpacityValue(prev => Math.max(0, prev - 5))}
+              >
+                <Ionicons name="remove" size={16} color="#FFF" />
+              </TouchableOpacity>
+              
+              <View 
+                style={styles.sliderTrack}
+                onLayout={onTrackLayout}
+                {...panResponder.panHandlers}
+              >
+                <View style={[styles.sliderFill, { width: `${opacityValue}%` }]} pointerEvents="none" />
+                <View style={[styles.sliderKnob, { left: `${opacityValue}%` }]} pointerEvents="none" />
+              </View>
+
+              <TouchableOpacity 
+                style={styles.adjustButton} 
+                onPress={() => setOpacityValue(prev => Math.min(100, prev + 5))}
+              >
+                <Ionicons name="add" size={16} color="#FFF" />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Shutter Button Row */}
         <View style={styles.shutterRow}>
@@ -685,29 +723,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  opacityRow: {
+  sliderContainer: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginLeft: 16,
   },
-  opacityPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#121212',
+  adjustButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1c1c1c',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#262626',
   },
-  opacityPillActive: {
-    backgroundColor: '#1c1c1c',
+  sliderTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#262626',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  sliderFill: {
+    height: '100%',
+    backgroundColor: '#FF5C35',
+    borderRadius: 3,
+  },
+  sliderKnob: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFF',
+    borderWidth: 2,
     borderColor: '#FF5C35',
-  },
-  opacityPillText: {
-    color: '#5c5c5c',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  opacityPillTextActive: {
-    color: '#FFF',
+    marginLeft: -8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
   },
   shutterRow: {
     width: '100%',
