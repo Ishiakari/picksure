@@ -1,98 +1,316 @@
+import React, { useState } from 'react';
+import { 
+  StyleSheet, 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  StatusBar,
+  Dimensions
+} from 'react-native';
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { TEMPLATES, Template } from '@/src/data/templates';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const { width } = Dimensions.get('window');
+const COLUMN_WIDTH = (width - 48) / 2;
+
+const CATEGORIES = ['All', 'Portrait', 'OOTD', 'Street', 'Golden Hour', 'Minimal', 'Editorial'];
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  // Filter templates based on category selection
+  const filteredTemplates = TEMPLATES.filter(template => {
+    if (selectedCategory === 'All') return true;
+    if (selectedCategory === 'Portrait') return template.category === 'Cafe Vibes' || template.category === 'Editorial';
+    return template.category.toLowerCase().includes(selectedCategory.toLowerCase());
+  });
+
+  // Distribute templates into two columns to simulate masonry layout
+  const leftColTemplates: Template[] = [];
+  const rightColTemplates: Template[] = [];
+  
+  filteredTemplates.forEach((item, index) => {
+    if (index % 2 === 0) {
+      leftColTemplates.push(item);
+    } else {
+      rightColTemplates.push(item);
+    }
+  });
+
+  const handleTemplatePress = (id: string) => {
+    router.push({
+      pathname: '/detail',
+      params: { id }
+    });
+  };
+
+  const handleFloatingCameraPress = () => {
+    // Open camera with the first template as default
+    router.push({
+      pathname: '/camera',
+      params: { id: TEMPLATES[0].id }
+    });
+  };
+
+  const renderCard = (item: Template) => {
+    // Custom aspect ratios to simulate Figma's height variations
+    let cardHeight = 220;
+    if (item.id === 'cafe-01') cardHeight = 240;
+    if (item.id === 'ootd-01') cardHeight = 220;
+    if (item.id === 'street-01') cardHeight = 260;
+    if (item.id === 'golden-01') cardHeight = 240;
+    if (item.id === 'minimal-01') cardHeight = 180;
+    if (item.id === 'editorial-01') cardHeight = 260;
+
+    return (
+      <TouchableOpacity 
+        key={item.id} 
+        style={[styles.card, { height: cardHeight }]}
+        activeOpacity={0.9}
+        onPress={() => handleTemplatePress(item.id)}
+      >
+        <Image 
+          source={item.imageSource} 
+          style={styles.cardImage} 
+          contentFit="cover"
+          transition={200}
+        />
+        <View style={styles.cardGradientOverlay} />
+        
+        {/* Category Tag */}
+        <View style={styles.tagContainer}>
+          <Text style={styles.tagText}>{item.category.toUpperCase()}</Text>
+        </View>
+
+        {/* Text Details at the Bottom */}
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+          <Text style={styles.cardMeta}>{item.difficulty} · {item.time}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+      
+      {/* Header Section */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>PICKSURE</Text>
+          <Text style={styles.headerSubtitle}>Pick your vibe. Be sure of your shot.</Text>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconButton}>
+            <Ionicons name="search-outline" size={24} color="#FFF" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton}>
+            <Ionicons name="person-outline" size={24} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Category Horizontal Filter */}
+      <View style={{ height: 50, marginBottom: 8 }}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {CATEGORIES.map(cat => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.categoryPill, isSelected && styles.categoryPillActive]}
+                onPress={() => setSelectedCategory(cat)}
+              >
+                <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Masonry / Grid Templates Feed */}
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.feedScroll}
+      >
+        <View style={styles.gridContainer}>
+          {/* Left Column */}
+          <View style={styles.gridColumn}>
+            {leftColTemplates.map(item => renderCard(item))}
+          </View>
+          
+          {/* Right Column */}
+          <View style={styles.gridColumn}>
+            {rightColTemplates.map(item => renderCard(item))}
+          </View>
+        </View>
+        
+        {/* Spacer for floating action button */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      {/* Floating Shutter Button */}
+      <TouchableOpacity 
+        style={styles.floatingButton} 
+        activeOpacity={0.8}
+        onPress={handleFloatingCameraPress}
+      >
+        <Ionicons name="camera" size={32} color="#FFF" />
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: 1.5,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#7a7a7a',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1c1c1c',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryScroll: {
+    paddingHorizontal: 20,
     alignItems: 'center',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  categoryPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#262626',
+    backgroundColor: '#181818',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  categoryPillActive: {
+    backgroundColor: '#FF5C35',
+    borderColor: '#FF5C35',
+  },
+  categoryText: {
+    color: '#a3a3a3',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  categoryTextActive: {
+    color: '#FFF',
+  },
+  feedScroll: {
+    paddingHorizontal: 20,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  gridColumn: {
+    width: COLUMN_WIDTH,
+    gap: 16,
+  },
+  card: {
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#1a1a1a',
+    position: 'relative',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
     position: 'absolute',
   },
+  cardGradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  tagContainer: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: '#FF5C35',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  tagText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  cardInfo: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  cardTitle: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  cardMeta: {
+    color: '#8c8c8c',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FF5C35',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF5C35',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
 });
+
