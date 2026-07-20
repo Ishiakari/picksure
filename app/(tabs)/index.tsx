@@ -13,7 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TEMPLATES, Template } from '@/src/data/templates';
+import { Template } from '@/src/data/templates';
+import { useTemplates } from '@/hooks/useTemplates';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -21,12 +22,13 @@ const COLUMN_WIDTH = (width - 48) / 2;
 const CATEGORIES = ['All', 'Portrait', 'OOTD', 'Street', 'Golden Hour', 'Minimal', 'Editorial'];
 
 export default function HomeScreen() {
+  const { templates } = useTemplates();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
 
   // Filter templates based on category selection
-  const filteredTemplates = TEMPLATES.filter(template => {
+  const filteredTemplates = templates.filter(template => {
     const matchesCategory = selectedCategory === 'All' || 
       (selectedCategory === 'Portrait' && (template.category === 'Cafe Vibes' || template.category === 'Editorial')) ||
       template.category.toLowerCase().includes(selectedCategory.toLowerCase());

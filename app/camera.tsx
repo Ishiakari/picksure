@@ -8,9 +8,7 @@ import {
   Dimensions,
   Animated,
   ActivityIndicator,
-  Platform,
-  ScrollView,
-  PanResponder
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -19,7 +17,9 @@ import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Line as SvgLine, Circle as SvgCircle, Rect as SvgRect } from 'react-native-svg';
 import { Image } from 'expo-image';
-import { TEMPLATES } from '@/src/data/templates';
+import { useTemplates } from '@/hooks/useTemplates';
+import SliderOpacity from '@/components/SliderOpacity';
+import SessionGalleryModal from '@/components/SessionGalleryModal';
 
 const { width } = Dimensions.get('window');
 // Standard 3:4 aspect ratio camera container height
@@ -27,7 +27,8 @@ const CAMERA_HEIGHT = width * 1.333;
 
 export default function CameraScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const template = id ? TEMPLATES.find(t => t.id === id) : null;
+  const { templates } = useTemplates();
+  const template = id ? templates.find(t => t.id === id) : null;
 
   // Safe Permissions State
   const [cameraPermission, setCameraPermission] = useState<{ granted: boolean } | null>(
@@ -49,33 +50,6 @@ export default function CameraScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [capturedPhotosList, setCapturedPhotosList] = useState<string[]>([]);
   const [isGalleryVisible, setIsGalleryVisible] = useState(false);
-  const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<string | null>(null);
-
-  // Dynamic slider tracking variables
-  const [trackWidth, setTrackWidth] = useState(130);
-  const trackWidthRef = useRef(130);
-  const startOpacity = useRef(55);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        const touchX = evt.nativeEvent.locationX;
-        let percentage = Math.round((touchX / trackWidthRef.current) * 100);
-        percentage = Math.max(0, Math.min(100, percentage));
-        setOpacityValue(percentage);
-        startOpacity.current = percentage;
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const dx = gestureState.dx;
-        const percentageChange = (dx / trackWidthRef.current) * 100;
-        let nextOpacity = Math.round(startOpacity.current + percentageChange);
-        nextOpacity = Math.max(0, Math.min(100, nextOpacity));
-        setOpacityValue(nextOpacity);
-      }
-    })
-  ).current;
 
   // Animated value for flashing dot
   const flashAnim = useRef(new Animated.Value(1)).current;
@@ -176,14 +150,6 @@ export default function CameraScreen() {
 
   const getOverlayOpacity = () => {
     return opacityValue / 100;
-  };
-
-  const onTrackLayout = (event: any) => {
-    const { width } = event.nativeEvent.layout;
-    if (width > 0) {
-      setTrackWidth(width);
-      trackWidthRef.current = width;
-    }
   };
 
   const handleShutterPress = () => {
@@ -382,35 +348,12 @@ export default function CameraScreen() {
       
       {/* Control Panel Below Camera Viewport */}
       <View style={styles.controlsPanel}>
-        {/* Opacity Control Slider (Custom fine-grained control) */}
+        {/* Opacity Control Slider Component */}
         {template && (
-          <View style={styles.opacitySelectorContainer}>
-            <Text style={styles.opacityLabel}>Opacity ({opacityValue}%)</Text>
-            <View style={styles.sliderContainer}>
-              <TouchableOpacity 
-                style={styles.adjustButton} 
-                onPress={() => setOpacityValue(prev => Math.max(0, prev - 5))}
-              >
-                <Ionicons name="remove" size={16} color="#FFF" />
-              </TouchableOpacity>
-              
-              <View 
-                style={styles.sliderTrack}
-                onLayout={onTrackLayout}
-                {...panResponder.panHandlers}
-              >
-                <View style={[styles.sliderFill, { width: `${opacityValue}%` }]} pointerEvents="none" />
-                <View style={[styles.sliderKnob, { left: `${opacityValue}%` }]} pointerEvents="none" />
-              </View>
-
-              <TouchableOpacity 
-                style={styles.adjustButton} 
-                onPress={() => setOpacityValue(prev => Math.min(100, prev + 5))}
-              >
-                <Ionicons name="add" size={16} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <SliderOpacity 
+            opacityValue={opacityValue} 
+            onOpacityChange={setOpacityValue} 
+          />
         )}
 
         {/* Shutter Button Row */}
@@ -451,66 +394,12 @@ export default function CameraScreen() {
         </View>
       </View>
 
-      {/* Gallery Modal Overlay */}
-      {isGalleryVisible && (
-        <View style={styles.galleryModal}>
-          <SafeAreaView style={styles.gallerySafeArea}>
-            {/* Header */}
-            <View style={styles.galleryHeader}>
-              <TouchableOpacity 
-                style={styles.headerButton} 
-                onPress={() => setIsGalleryVisible(false)}
-              >
-                <Ionicons name="arrow-back" size={24} color="#FFF" />
-              </TouchableOpacity>
-              <Text style={styles.galleryTitle}>Session Gallery</Text>
-              <View style={{ width: 44 }} />
-            </View>
-
-            {/* Photos List */}
-            {capturedPhotosList.length === 0 ? (
-              <View style={styles.emptyGalleryContainer}>
-                <Ionicons name="images-outline" size={48} color="#444" />
-                <Text style={styles.emptyGalleryText}>No photos captured in this session yet.</Text>
-              </View>
-            ) : (
-              <ScrollView contentContainerStyle={styles.galleryGrid}>
-                {capturedPhotosList.map((uri, idx) => (
-                  <TouchableOpacity 
-                    key={idx} 
-                    style={styles.galleryCard}
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedGalleryPhoto(uri)}
-                  >
-                    <Image source={uri} style={styles.galleryImage} contentFit="cover" />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </SafeAreaView>
-        </View>
-      )}
-
-      {/* Full Screen Photo Viewer */}
-      {selectedGalleryPhoto && (
-        <View style={styles.fullScreenViewer}>
-          <SafeAreaView style={styles.fullScreenSafeArea}>
-            <View style={styles.fullScreenHeader}>
-              <TouchableOpacity 
-                style={styles.headerButton} 
-                onPress={() => setSelectedGalleryPhoto(null)}
-              >
-                <Ionicons name="arrow-back" size={24} color="#FFF" />
-              </TouchableOpacity>
-              <Text style={styles.galleryTitle}>Photo Preview</Text>
-              <View style={{ width: 44 }} />
-            </View>
-            <View style={styles.fullScreenImageContainer}>
-              <Image source={selectedGalleryPhoto} style={styles.fullScreenImage} contentFit="contain" />
-            </View>
-          </SafeAreaView>
-        </View>
-      )}
+      {/* Session Gallery Modal Component */}
+      <SessionGalleryModal 
+        visible={isGalleryVisible} 
+        photos={capturedPhotosList} 
+        onClose={() => setIsGalleryVisible(false)} 
+      />
     </SafeAreaView>
   );
 }
@@ -704,69 +593,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF5C35',
     borderColor: '#FF5C35',
   },
+  timerWidgetText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   controlsPanel: {
     backgroundColor: '#000',
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  opacitySelectorContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginBottom: 20,
-  },
-  opacityLabel: {
-    color: '#7a7a7a',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-    marginLeft: 16,
-  },
-  adjustButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#1c1c1c',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#262626',
-  },
-  sliderTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#262626',
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  sliderFill: {
-    height: '100%',
-    backgroundColor: '#FF5C35',
-    borderRadius: 3,
-  },
-  sliderKnob: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FFF',
-    borderWidth: 2,
-    borderColor: '#FF5C35',
-    marginLeft: -8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
   },
   shutterRow: {
     width: '100%',
@@ -829,86 +665,5 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 10,
-  },
-  timerWidgetText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  galleryModal: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#121212',
-    zIndex: 1000,
-  },
-  gallerySafeArea: {
-    flex: 1,
-  },
-  galleryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#262626',
-  },
-  galleryTitle: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  emptyGalleryContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 32,
-  },
-  emptyGalleryText: {
-    color: '#7a7a7a',
-    fontSize: 15,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  galleryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 8,
-    gap: 8,
-  },
-  galleryCard: {
-    width: (width - 24) / 2,
-    aspectRatio: 3 / 4,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
-  },
-  galleryImage: {
-    width: '100%',
-    height: '100%',
-  },
-  fullScreenViewer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-    zIndex: 1100,
-  },
-  fullScreenSafeArea: {
-    flex: 1,
-  },
-  fullScreenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  fullScreenImageContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullScreenImage: {
-    width: '100%',
-    height: '100%',
   },
 });

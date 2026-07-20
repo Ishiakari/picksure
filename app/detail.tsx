@@ -13,15 +13,16 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Line as SvgLine, Circle as SvgCircle, Rect as SvgRect } from 'react-native-svg';
-import { TEMPLATES } from '@/src/data/templates';
+import { useTemplates } from '@/hooks/useTemplates';
 
 const { width } = Dimensions.get('window');
 
 export default function TemplateDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { templates } = useTemplates();
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  const template = TEMPLATES.find(t => t.id === id);
+  const template = templates.find(t => t.id === id);
 
   if (!template) {
     return (
