@@ -15,6 +15,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Template } from '@/src/data/templates';
 import { useTemplates } from '@/hooks/useTemplates';
+import { Colors } from '@/constants/theme';
+import PickSureLogo from '@/components/PickSureLogo';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
@@ -66,7 +68,7 @@ export default function HomeScreen() {
   };
 
   const renderCard = (item: Template) => {
-    // Custom aspect ratios to simulate Figma's height variations
+    // Custom aspect ratios to simulate height variations
     let cardHeight = 220;
     if (item.id === 'cafe-01') cardHeight = 240;
     if (item.id === 'ootd-01') cardHeight = 220;
@@ -106,7 +108,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.darkBackground} />
       
       {/* Header Section */}
       <View style={styles.header}>
@@ -115,7 +117,7 @@ export default function HomeScreen() {
             <TextInput 
               style={styles.searchInput}
               placeholder="Search templates..."
-              placeholderTextColor="#7a7a7a"
+              placeholderTextColor="#99818c"
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -127,21 +129,24 @@ export default function HomeScreen() {
                 setSearchQuery('');
               }}
             >
-              <Ionicons name="close" size={20} color="#FFF" />
+              <Ionicons name="close" size={20} color={Colors.creamLight} />
             </TouchableOpacity>
           </View>
         ) : (
           <>
-            <View>
-              <Text style={styles.headerTitle}>PICKSURE</Text>
-              <Text style={styles.headerSubtitle}>Pick your vibe. Be sure of your shot.</Text>
+            <View style={styles.brandContainer}>
+              <PickSureLogo size={42} showText={false} color={Colors.rosePrimary} />
+              <View style={styles.brandTitleContainer}>
+                <Text style={styles.headerTitle}>PICKSURE</Text>
+                <Text style={styles.headerSubtitle}>Pick your vibe. Be sure of your shot.</Text>
+              </View>
             </View>
             <View style={styles.headerIcons}>
               <TouchableOpacity style={styles.iconButton} onPress={() => setIsSearchActive(true)}>
-                <Ionicons name="search-outline" size={24} color="#FFF" />
+                <Ionicons name="search-outline" size={22} color={Colors.creamLight} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconButton}>
-                <Ionicons name="person-outline" size={24} color="#FFF" />
+                <Ionicons name="person-outline" size={22} color={Colors.creamLight} />
               </TouchableOpacity>
             </View>
           </>
@@ -172,7 +177,7 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Masonry / Grid Templates Feed */}
+      {/* Masonry / Grid Templates Feed Feed */}
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.feedScroll}
@@ -208,54 +213,66 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: Colors.darkBackground,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  brandTitleContainer: {
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '900',
-    color: '#FFF',
-    letterSpacing: 1.5,
+    color: Colors.creamLight,
+    letterSpacing: 2,
   },
   headerSubtitle: {
-    fontSize: 12,
-    color: '#7a7a7a',
-    marginTop: 4,
+    fontSize: 11,
+    color: Colors.roseSoft,
+    marginTop: 2,
     fontWeight: '500',
   },
   headerIcons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1c1c1c',
+    backgroundColor: Colors.darkCard,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    backgroundColor: '#1c1c1c',
+    backgroundColor: Colors.darkCard,
     borderRadius: 20,
     paddingLeft: 16,
     paddingRight: 4,
     height: 48,
+    borderWidth: 1,
+    borderColor: Colors.rosePrimary,
   },
   searchInput: {
     flex: 1,
-    color: '#FFF',
-    fontSize: 16,
+    color: Colors.creamLight,
+    fontSize: 15,
   },
   categoryScroll: {
     paddingHorizontal: 20,
@@ -267,20 +284,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#262626',
-    backgroundColor: '#181818',
+    borderColor: Colors.border,
+    backgroundColor: Colors.darkCard,
   },
   categoryPillActive: {
-    backgroundColor: '#FF5C35',
-    borderColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
+    borderColor: Colors.rosePrimary,
   },
   categoryText: {
-    color: '#a3a3a3',
+    color: '#b89fa9',
     fontWeight: '600',
     fontSize: 13,
   },
   categoryTextActive: {
-    color: '#FFF',
+    color: Colors.darkText,
+    fontWeight: '800',
   },
   feedScroll: {
     paddingHorizontal: 20,
@@ -297,8 +315,10 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: Colors.darkCard,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   cardImage: {
     width: '100%',
@@ -307,19 +327,19 @@ const styles = StyleSheet.create({
   },
   cardGradientOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(22, 17, 20, 0.35)',
   },
   tagContainer: {
     position: 'absolute',
     top: 12,
     left: 12,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   tagText: {
-    color: '#FFF',
+    color: Colors.darkText,
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -333,16 +353,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   cardTitle: {
-    color: '#FFF',
+    color: Colors.creamLight,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
     lineHeight: 18,
   },
   cardMeta: {
-    color: '#8c8c8c',
+    color: Colors.roseSoft,
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   floatingButton: {
     position: 'absolute',
@@ -351,14 +371,14 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FF5C35',
+    shadowColor: Colors.rosePrimary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
     elevation: 8,
   },
-});
+});;
 

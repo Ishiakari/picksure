@@ -1,41 +1,50 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
+/**
+ * PickSure Brand Color Palette
+ * Derived from the official brand color swatch:
+ * - Rose Primary: #f7a0b8
+ * - Soft Rose: #fbb6c4
+ * - Warm Cream Surface: #fae9d7
+ * - Light Vanilla Background: #faf5ec
+ * - Deep Charcoal Accent: #2A1D24
+ */
 export const Colors = {
+  // Brand Color Palette Tokens
+  rosePrimary: '#f7a0b8',
+  roseSoft: '#fbb6c4',
+  creamSurface: '#fae9d7',
+  creamLight: '#faf5ec',
+  darkText: '#2A1D24',
+  darkBackground: '#161114',
+  darkCard: '#22191f',
+  border: '#33242c',
+
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: '#2A1D24',
+    background: '#faf5ec',
+    card: '#fae9d7',
+    tint: '#f7a0b8',
+    icon: '#7a646e',
+    tabIconDefault: '#a38f98',
+    tabIconSelected: '#f7a0b8',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#faf5ec',
+    background: '#161114',
+    card: '#22191f',
+    tint: '#f7a0b8',
+    icon: '#b89fa9',
+    tabIconDefault: '#7a646e',
+    tabIconSelected: '#fbb6c4',
   },
 };
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
