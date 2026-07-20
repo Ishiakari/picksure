@@ -20,6 +20,7 @@ import { Image } from 'expo-image';
 import { useTemplates } from '@/hooks/useTemplates';
 import SliderOpacity from '@/components/SliderOpacity';
 import SessionGalleryModal from '@/components/SessionGalleryModal';
+import { Colors } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 // Standard 3:4 aspect ratio camera container height
@@ -119,7 +120,7 @@ export default function CameraScreen() {
     // Camera permissions are still loading
     return (
       <View style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color="#FF5C35" />
+        <ActivityIndicator size="large" color={Colors.rosePrimary} />
       </View>
     );
   }
@@ -309,7 +310,7 @@ export default function CameraScreen() {
             <Ionicons 
               name="layers-outline" 
               size={24} 
-              color={showReferenceImage ? "#FF5C35" : "#FFF"} 
+              color={showReferenceImage ? Colors.rosePrimary : "#FFF"} 
             />
           </TouchableOpacity>
         ) : (
@@ -329,7 +330,7 @@ export default function CameraScreen() {
               />
             )}
             <View style={styles.webCameraMockBanner}>
-              <Ionicons name="videocam-outline" size={16} color="#FF5C35" style={{ marginRight: 6 }} />
+              <Ionicons name="videocam-outline" size={16} color={Colors.rosePrimary} style={{ marginRight: 6 }} />
               <Text style={styles.webCameraMockText}>Web Viewfinder Simulator</Text>
             </View>
             {renderOverlays()}
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   webCameraMockText: {
-    color: '#FF5C35',
+    color: Colors.rosePrimary,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 28,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
   },
   permissionButtonText: {
     color: '#FFF',
@@ -480,7 +481,7 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     fontSize: 11,
-    color: '#FF5C35',
+    color: Colors.rosePrimary,
     fontWeight: '900',
     letterSpacing: 1.5,
   },
@@ -559,13 +560,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FF5C35',
+    borderColor: Colors.rosePrimary,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
     marginRight: 6,
   },
   alignText: {
@@ -590,8 +591,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   widgetButtonActive: {
-    backgroundColor: '#FF5C35',
-    borderColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
+    borderColor: Colors.rosePrimary,
   },
   timerWidgetText: {
     color: '#FFF',

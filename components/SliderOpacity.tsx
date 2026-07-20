@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
 
 interface SliderOpacityProps {
   opacityValue: number;
@@ -54,7 +55,7 @@ export default function SliderOpacity({ opacityValue, onOpacityChange }: SliderO
           style={styles.adjustButton} 
           onPress={() => onOpacityChange(Math.max(0, opacityValue - 5))}
         >
-          <Ionicons name="remove" size={16} color="#FFF" />
+          <Ionicons name="remove" size={16} color={Colors.creamLight} />
         </TouchableOpacity>
         
         <View 
@@ -70,7 +71,7 @@ export default function SliderOpacity({ opacityValue, onOpacityChange }: SliderO
           style={styles.adjustButton} 
           onPress={() => onOpacityChange(Math.min(100, opacityValue + 5))}
         >
-          <Ionicons name="add" size={16} color="#FFF" />
+          <Ionicons name="add" size={16} color={Colors.creamLight} />
         </TouchableOpacity>
       </View>
     </View>
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   opacityLabel: {
-    color: '#7a7a7a',
+    color: Colors.roseSoft,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -102,23 +103,23 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1c1c1c',
+    backgroundColor: Colors.darkCard,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: Colors.border,
   },
   sliderTrack: {
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#262626',
+    backgroundColor: Colors.border,
     position: 'relative',
     justifyContent: 'center',
   },
   sliderFill: {
     height: '100%',
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
     borderRadius: 3,
   },
   sliderKnob: {
@@ -126,13 +127,13 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#FFF',
+    backgroundColor: Colors.creamLight,
     borderWidth: 2,
-    borderColor: '#FF5C35',
+    borderColor: Colors.rosePrimary,
     marginLeft: -8,
-    shadowColor: '#000',
+    shadowColor: Colors.rosePrimary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 2,
     elevation: 3,
   },

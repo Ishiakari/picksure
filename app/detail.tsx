@@ -14,6 +14,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Line as SvgLine, Circle as SvgCircle, Rect as SvgRect } from 'react-native-svg';
 import { useTemplates } from '@/hooks/useTemplates';
+import { Colors } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -62,7 +63,7 @@ export default function TemplateDetailScreen() {
               style={styles.circleButton} 
               onPress={() => router.back()}
             >
-              <Ionicons name="chevron-back" size={24} color="#FFF" />
+              <Ionicons name="chevron-back" size={24} color={Colors.creamLight} />
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -72,7 +73,7 @@ export default function TemplateDetailScreen() {
               <Ionicons 
                 name={isBookmarked ? "bookmark" : "bookmark-outline"} 
                 size={22} 
-                color={isBookmarked ? "#FF5C35" : "#FFF"} 
+                color={isBookmarked ? Colors.rosePrimary : Colors.creamLight} 
               />
             </TouchableOpacity>
           </SafeAreaView>
@@ -97,19 +98,19 @@ export default function TemplateDetailScreen() {
           {/* Stats Bar */}
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
-              <Ionicons name="people-outline" size={20} color="#FF5C35" />
+              <Ionicons name="people-outline" size={20} color={Colors.rosePrimary} />
               <Text style={styles.statValue}>{template.usedCount}</Text>
               <Text style={styles.statLabel}>Used</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="heart-outline" size={20} color="#FF5C35" />
+              <Ionicons name="heart-outline" size={20} color={Colors.rosePrimary} />
               <Text style={styles.statValue}>{template.savedCount}</Text>
               <Text style={styles.statLabel}>Saved</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="ribbon-outline" size={20} color="#FF5C35" />
+              <Ionicons name="ribbon-outline" size={20} color={Colors.rosePrimary} />
               <Text style={styles.statValue}>{template.difficulty}</Text>
               <Text style={styles.statLabel}>Difficulty</Text>
             </View>
@@ -117,7 +118,7 @@ export default function TemplateDetailScreen() {
 
           {/* Director's Guide */}
           <View style={styles.sectionHeader}>
-            <Ionicons name="videocam" size={20} color="#FF5C35" />
+            <Ionicons name="videocam" size={20} color={Colors.rosePrimary} />
             <Text style={styles.sectionTitle}>DIRECTOR'S GUIDE</Text>
           </View>
           
@@ -165,7 +166,7 @@ export default function TemplateDetailScreen() {
           activeOpacity={0.8}
           onPress={handleUseFrame}
         >
-          <Ionicons name="camera" size={22} color="#FFF" style={{ marginRight: 8 }} />
+          <Ionicons name="camera" size={22} color={Colors.darkText} style={{ marginRight: 8 }} />
           <Text style={styles.ctaText}>Use This Frame</Text>
         </TouchableOpacity>
       </View>
@@ -176,20 +177,20 @@ export default function TemplateDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: Colors.darkBackground,
   },
   scrollContent: {
     flexGrow: 1,
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: Colors.darkBackground,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   errorText: {
-    color: '#FFF',
+    color: Colors.creamLight,
     fontSize: 16,
     marginBottom: 20,
   },
@@ -197,10 +198,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
   },
   backButtonText: {
-    color: '#FFF',
+    color: Colors.darkText,
     fontWeight: 'bold',
   },
   heroContainer: {
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(22, 17, 20, 0.35)',
   },
   headerControls: {
     position: 'absolute',
@@ -230,21 +231,23 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(18, 18, 18, 0.6)',
+    backgroundColor: 'rgba(34, 25, 31, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   categoryTag: {
     position: 'absolute',
     bottom: 20,
     left: 20,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
   categoryTagText: {
-    color: '#FFF',
+    color: Colors.darkText,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
@@ -256,18 +259,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#FFF',
+    color: Colors.creamLight,
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 13,
-    color: '#a3a3a3',
+    color: Colors.roseSoft,
     fontWeight: '600',
     marginBottom: 16,
   },
   description: {
     fontSize: 14,
-    color: '#c4c4c4',
+    color: '#d4c4cc',
     lineHeight: 22,
     marginBottom: 24,
     fontWeight: '400',
@@ -276,13 +279,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#181818',
+    backgroundColor: Colors.darkCard,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 30,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: Colors.border,
   },
   statItem: {
     flex: 1,
@@ -290,19 +293,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statValue: {
-    color: '#FFF',
+    color: Colors.creamLight,
     fontSize: 16,
     fontWeight: '800',
   },
   statLabel: {
-    color: '#7a7a7a',
+    color: Colors.roseSoft,
     fontSize: 11,
     fontWeight: '600',
   },
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#262626',
+    backgroundColor: Colors.border,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -313,7 +316,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '900',
-    color: '#FFF',
+    color: Colors.creamLight,
     letterSpacing: 1,
   },
   tipsList: {
@@ -328,20 +331,20 @@ const styles = StyleSheet.create({
   bulletPoint: {
     width: 8,
     height: 8,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
     borderRadius: 2,
     marginTop: 6,
   },
   tipText: {
     flex: 1,
-    color: '#d4d4d4',
+    color: '#e0d6dc',
     fontSize: 14,
     lineHeight: 20,
   },
   previewContainer: {
-    backgroundColor: '#181818',
+    backgroundColor: Colors.darkCard,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: Colors.border,
     borderRadius: 16,
     aspectRatio: 3 / 2,
     justifyContent: 'center',
@@ -356,7 +359,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     position: 'relative',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(247, 160, 184, 0.2)',
   },
   ctaWrapper: {
     position: 'absolute',
@@ -366,25 +369,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
     paddingTop: 16,
-    backgroundColor: 'rgba(18, 18, 18, 0.85)',
+    backgroundColor: 'rgba(22, 17, 20, 0.85)',
   },
   ctaButton: {
     width: '100%',
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FF5C35',
+    backgroundColor: Colors.rosePrimary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FF5C35',
+    shadowColor: Colors.rosePrimary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 5,
   },
   ctaText: {
-    color: '#FFF',
+    color: Colors.darkText,
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 });

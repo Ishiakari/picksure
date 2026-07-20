@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { Colors } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -35,7 +36,7 @@ export default function SessionGalleryModal({ visible, photos, onClose }: Sessio
               style={styles.headerButton} 
               onPress={onClose}
             >
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
+              <Ionicons name="arrow-back" size={24} color={Colors.creamLight} />
             </TouchableOpacity>
             <Text style={styles.galleryTitle}>Session Gallery</Text>
             <View style={{ width: 44 }} />
@@ -44,7 +45,7 @@ export default function SessionGalleryModal({ visible, photos, onClose }: Sessio
           {/* Photos List */}
           {photos.length === 0 ? (
             <View style={styles.emptyGalleryContainer}>
-              <Ionicons name="images-outline" size={48} color="#444" />
+              <Ionicons name="images-outline" size={48} color={Colors.roseSoft} />
               <Text style={styles.emptyGalleryText}>No photos captured in this session yet.</Text>
             </View>
           ) : (
@@ -73,7 +74,7 @@ export default function SessionGalleryModal({ visible, photos, onClose }: Sessio
                 style={styles.headerButton} 
                 onPress={() => setSelectedPhoto(null)}
               >
-                <Ionicons name="arrow-back" size={24} color="#FFF" />
+                <Ionicons name="arrow-back" size={24} color={Colors.creamLight} />
               </TouchableOpacity>
               <Text style={styles.galleryTitle}>Photo Preview</Text>
               <View style={{ width: 44 }} />
@@ -91,7 +92,7 @@ export default function SessionGalleryModal({ visible, photos, onClose }: Sessio
 const styles = StyleSheet.create({
   galleryModal: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#121212',
+    backgroundColor: Colors.darkBackground,
     zIndex: 1000,
   },
   gallerySafeArea: {
@@ -104,18 +105,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#262626',
+    borderBottomColor: Colors.border,
   },
   headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#161616',
+    backgroundColor: Colors.darkCard,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   galleryTitle: {
-    color: '#FFF',
+    color: Colors.creamLight,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -127,7 +130,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyGalleryText: {
-    color: '#7a7a7a',
+    color: Colors.roseSoft,
     fontSize: 15,
     textAlign: 'center',
     fontWeight: '500',
@@ -143,7 +146,9 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: Colors.darkCard,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   galleryImage: {
     width: '100%',
