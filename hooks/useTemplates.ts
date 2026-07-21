@@ -17,12 +17,35 @@ export function addCustomTemplateToFeed(newTemplate: Template) {
 
 /**
  * Custom React Hook for accessing template dataset.
- * Guarantees local fallback templates display instantly, while merging Supabase DB templates asynchronously.
+ * Supports pull-to-refresh and async Supabase template merging.
  */
 export function useTemplates() {
   const [templates, setTemplates] = useState<Template[]>(cachedTemplates);
   const [loading, setLoading] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchRemoteTemplates = async () => {
+    try {
+      const data = await templateService.getTemplates();
+      if (data && data.length > 0) {
+        const existingIds = new Set(cachedTemplates.map(t => t.id));
+        const newRemote = data.filter(t => !existingIds.has(t.id));
+        if (newRemote.length > 0) {
+          cachedTemplates = [...newRemote, ...cachedTemplates];
+          notifyListeners();
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load templates');
+    }
+  };
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await fetchRemoteTemplates();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -33,31 +56,7 @@ export function useTemplates() {
     };
     listeners.push(handleUpdate);
 
-    async function loadTemplates() {
-      try {
-        setLoading(true);
-        const data = await templateService.getTemplates();
-        if (isMounted && data && data.length > 0) {
-          // Merge unique remote templates with cached list
-          const existingIds = new Set(cachedTemplates.map(t => t.id));
-          const newRemote = data.filter(t => !existingIds.has(t.id));
-          if (newRemote.length > 0) {
-            cachedTemplates = [...newRemote, ...cachedTemplates];
-            setTemplates([...cachedTemplates]);
-          }
-        }
-      } catch (err: any) {
-        if (isMounted) {
-          setError(err?.message || 'Failed to load templates');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadTemplates();
+    fetchRemoteTemplates();
 
     return () => {
       isMounted = false;
@@ -65,5 +64,5 @@ export function useTemplates() {
     };
   }, []);
 
-  return { templates, loading, error };
+  return { templates, loading, refreshing, refresh, error };
 }

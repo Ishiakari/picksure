@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   StatusBar,
   Dimensions,
-  TextInput
+  TextInput,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -35,7 +36,7 @@ const CATEGORIES = [
 ];
 
 export default function HomeScreen() {
-  const { templates } = useTemplates();
+  const { templates, refreshing, refresh } = useTemplates();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -196,6 +197,14 @@ export default function HomeScreen() {
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.feedScroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={Colors.rosePrimary}
+            colors={[Colors.rosePrimary]}
+          />
+        }
       >
         <View style={styles.gridContainer}>
           {/* Left Column */}
