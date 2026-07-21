@@ -134,7 +134,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       }
 
       // 5. Insert row into Supabase 'templates' database table
-      let { error: dbError } = await supabase.from('templates').insert([
+      let insertResult = await supabase.from('templates').insert([
         {
           title,
           category,
@@ -144,12 +144,15 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
           difficulty: 'Beginner',
           time: '2 min',
         }
-      ]);
+      ]).select();
+
+      let dbError = insertResult.error;
+      let insertedRow = insertResult.data?.[0];
 
       // Fallback: If profile doesn't exist and violates foreign key constraint, insert with creator_id = null
       if (dbError && (dbError.message.includes("violates foreign key constraint") || dbError.code === '23503')) {
         console.warn("Foreign key constraint failed, retrying with creator_id = null fallback");
-        const { error: fallbackError } = await supabase.from('templates').insert([
+        const fallbackResult = await supabase.from('templates').insert([
           {
             title,
             category,
@@ -159,13 +162,14 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
             difficulty: 'Beginner',
             time: '2 min',
           }
-        ]);
-        dbError = fallbackError;
+        ]).select();
+        dbError = fallbackResult.error;
+        insertedRow = fallbackResult.data?.[0];
       }
 
-      // Create a local Template object for instant feed display
+      // Create a local Template object for instant feed display, using DB uuid if insert succeeded
       const newTemplateObj = {
-        id: `custom-${Date.now()}`,
+        id: insertedRow?.id || `custom-${Date.now()}`,
         title,
         category,
         description,
