@@ -17,26 +17,41 @@ import { Template } from '@/src/data/templates';
 import { useTemplates } from '@/hooks/useTemplates';
 import { Colors } from '@/constants/theme';
 import PickSureLogo from '@/components/PickSureLogo';
+import AuthModal from '@/components/AuthModal';
+import UploadTemplateModal from '@/components/UploadTemplateModal';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
 
-const CATEGORIES = ['All', 'Portrait', 'OOTD', 'Street', 'Golden Hour', 'Minimal', 'Editorial'];
+const CATEGORIES = [
+  'All', 
+  'Cafe & Lifestyle', 
+  'OOTD & Streetwear', 
+  'Cottagecore & Nature', 
+  'Editorial & Noir', 
+  'Minimalist & Silhouette', 
+  'Casual & Mirror Check', 
+  'Couples & Friends'
+];
 
 export default function HomeScreen() {
   const { templates } = useTemplates();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
+  const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
 
   // Filter templates based on category selection
   const filteredTemplates = templates.filter(template => {
+    const templateCategory = template.category || '';
+    const templateTitle = template.title || '';
+
     const matchesCategory = selectedCategory === 'All' || 
-      (selectedCategory === 'Portrait' && (template.category === 'Cafe Vibes' || template.category === 'Editorial')) ||
-      template.category.toLowerCase().includes(selectedCategory.toLowerCase());
+      templateCategory.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
       
-    const matchesSearch = template.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          template.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = templateTitle.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          templateCategory.toLowerCase().includes(searchQuery.toLowerCase());
                           
     return matchesCategory && matchesSearch;
   });
@@ -145,7 +160,7 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.iconButton} onPress={() => setIsSearchActive(true)}>
                 <Ionicons name="search-outline" size={22} color={Colors.creamLight} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
+              <TouchableOpacity style={styles.iconButton} onPress={() => setIsAuthModalVisible(true)}>
                 <Ionicons name="person-outline" size={22} color={Colors.creamLight} />
               </TouchableOpacity>
             </View>
@@ -206,6 +221,22 @@ export default function HomeScreen() {
       >
         <Ionicons name="camera" size={32} color="#FFF" />
       </TouchableOpacity>
+
+      {/* Google Authentication & User Profile Modal */}
+      <AuthModal 
+        visible={isAuthModalVisible} 
+        onClose={() => setIsAuthModalVisible(false)} 
+        onOpenUploadModal={() => setIsUploadModalVisible(true)}
+      />
+
+      {/* Upload Custom Pose Template Modal */}
+      <UploadTemplateModal 
+        visible={isUploadModalVisible} 
+        onClose={() => setIsUploadModalVisible(false)} 
+        onUploadSuccess={() => {
+          // Templates list will update automatically
+        }}
+      />
     </SafeAreaView>
   );
 }

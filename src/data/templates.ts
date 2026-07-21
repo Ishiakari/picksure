@@ -15,7 +15,7 @@ export const TEMPLATES: Template[] = [
   {
     id: 'cafe-01',
     title: 'Golden Latte Moment',
-    category: 'Cafe Vibes',
+    category: 'Cafe & Lifestyle',
     difficulty: 'Beginner',
     time: '2 min',
     usedCount: '12.4k',
@@ -31,13 +31,12 @@ export const TEMPLATES: Template[] = [
   {
     id: 'garden-study-01',
     title: 'Secret Garden Study',
-    category: 'Lifestyle',
+    category: 'Cafe & Lifestyle',
     difficulty: 'Intermediate',
     time: '3 min',
     usedCount: '5.4k',
     savedCount: '1.8k',
     description: 'A relaxing outdoor study setup focusing on diagonal perspectives and deep bench alignment.',
-    // Corrected path to point to assets/images/previews/study.jpg
     imageSource: require('../../assets/images/previews/study.jpg'), 
     tips: [
       "Align your subject completely along the right vertical third line.",
@@ -48,7 +47,7 @@ export const TEMPLATES: Template[] = [
   {
     id: 'meadow-walk-01',
     title: 'Enchanted Meadow Walk',
-    category: 'Cottagecore',
+    category: 'Cottagecore & Nature',
     difficulty: 'Beginner',
     time: '2 min',
     usedCount: '8.2k',

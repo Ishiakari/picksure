@@ -1,26 +1,31 @@
+// services/templateService.ts
 import { TEMPLATES, Template } from '@/src/data/templates';
+import { supabase } from '@/lib/supabase';
 
-/**
- * Service to manage template data fetching.
- * Currently defaults to local static templates.
- * Easily expandable to fetch from Supabase/Cloud backend.
- */
 export const templateService = {
-  /**
-   * Fetch all available templates
-   */
   async getTemplates(): Promise<Template[]> {
-    // When Supabase is configured:
-    // const { data, error } = await supabase.from('templates').select('*');
-    // return data || TEMPLATES;
-    return Promise.resolve(TEMPLATES);
-  },
+    try {
+      const { data, error } = await supabase.from('templates').select('*');
+      if (error || !data) return TEMPLATES;
+      
+      const remoteTemplates: Template[] = data.map(item => ({
+        id: item.id,
+        title: item.title || 'Untitled Pose',
+        category: item.category || 'Cafe & Lifestyle',
+        description: item.description || '',
+        imageSource: { uri: item.image_url },
+        difficulty: item.difficulty || 'Beginner',
+        time: item.time || '2 min',
+        tips: ['Align pose overlay with subject.'],
+        usedCount: '0',
+        savedCount: '0'
+      }));
 
-  /**
-   * Fetch a single template by ID
-   */
-  async getTemplateById(id: string): Promise<Template | null> {
-    const templates = await this.getTemplates();
-    return templates.find(t => t.id === id) || null;
+      // Combine local default templates with user uploaded templates
+      return [...remoteTemplates, ...TEMPLATES];
+    } catch (err) {
+      console.error("Error in templateService.getTemplates:", err);
+      return TEMPLATES;
+    }
   }
 };
