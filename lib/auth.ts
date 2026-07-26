@@ -20,18 +20,17 @@ function withTimeout<T>(
 }
 
 // Helper to extract tokens from hash fragment or query string
-function extractToken(url: string, param: string): string {
+export function extractToken(url: string, param: string): string {
   const match = url.match(new RegExp(`[#?&]${param}=([^&]*)`));
   return match ? decodeURIComponent(match[1]) : '';
 }
 
 /**
- * Official Supabase + Expo Google OAuth Handler with Android Dismiss Fallback.
+ * Official Supabase + Expo Google OAuth Handler.
  */
 export async function signInWithGoogle() {
   const redirectUri = AuthSession.makeRedirectUri({
     scheme: 'picksure',
-    preferLocalhost: false,
   });
 
   const { data, error } = await withTimeout(
@@ -50,7 +49,9 @@ export async function signInWithGoogle() {
   }
 
   if (data?.url) {
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri, {
+      showInRecents: true,
+    });
     
     // 1. If WebBrowser returned success with URL, extract tokens directly
     if (result.type === 'success' && result.url) {
@@ -67,11 +68,13 @@ export async function signInWithGoogle() {
       }
     }
 
-    // 2. Fallback check: On Android, Chrome tabs may dismiss before resolving result.url.
-    // Check if Supabase session was established in background.
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData?.session) {
-      return;
+    // 2. Fallback check: Poll for up to 4 seconds for session set by deep link listener
+    for (let i = 0; i < 8; i++) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session) {
+        return;
+      }
+      await new Promise((res) => setTimeout(res, 500));
     }
   }
 }

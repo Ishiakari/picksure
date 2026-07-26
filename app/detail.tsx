@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -6,14 +6,18 @@ import {
   ScrollView, 
   TouchableOpacity, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Line as SvgLine, Circle as SvgCircle, Rect as SvgRect } from 'react-native-svg';
+import Svg, { Line as SvgLine } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -21,9 +25,30 @@ const { width } = Dimensions.get('window');
 export default function TemplateDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { templates } = useTemplates();
-  const [isBookmarked, setIsBookmarked] = useState(false);
-
+  const { user } = useAuth();
+  
   const template = templates.find(t => t.id === id);
+
+  const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
+  const [savedCount, setSavedCount] = useState<number>(0);
+  const [usedCount, setUsedCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (template) {
+      // Parse initial numeric counts
+      const initialSaved = parseInt(template.savedCount) || 0;
+      const initialUsed = parseInt(template.usedCount) || 0;
+      setSavedCount(initialSaved);
+      setUsedCount(initialUsed);
+
+      // Check if user previously saved this template locally
+      AsyncStorage.getItem(`saved_template_${template.id}`).then((val) => {
+        if (val === 'true') {
+          setIsBookmarked(true);
+        }
+      });
+    }
+  }, [template?.id]);
 
   if (!template) {
     return (
@@ -36,7 +61,55 @@ export default function TemplateDetailScreen() {
     );
   }
 
-  const handleUseFrame = () => {
+  const handleToggleBookmark = async () => {
+    const nextState = !isBookmarked;
+    setIsBookmarked(nextState);
+    const newCount = nextState ? savedCount + 1 : Math.max(0, savedCount - 1);
+    setSavedCount(newCount);
+
+    try {
+      // Persist local favorite status
+      if (nextState) {
+        await AsyncStorage.setItem(`saved_template_${template.id}`, 'true');
+      } else {
+        await AsyncStorage.removeItem(`saved_template_${template.id}`);
+      }
+
+      // Sync with Supabase saved_templates table if user is logged in
+      if (user?.id) {
+        if (nextState) {
+          await supabase.from('saved_templates').insert([
+            { user_id: user.id, template_id: template.id }
+          ]);
+        } else {
+          await supabase.from('saved_templates')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('template_id', template.id);
+        }
+      }
+    } catch (err) {
+      console.warn("Bookmark sync error:", err);
+    }
+  };
+
+  const handleUseFrame = async () => {
+    const nextUsed = usedCount + 1;
+    setUsedCount(nextUsed);
+
+    try {
+      // Save locally
+      await AsyncStorage.setItem(`used_template_${template.id}`, String(nextUsed));
+      
+      // Sync with Supabase DB
+      await supabase.from('templates')
+        .update({ used_count: nextUsed })
+        .eq('id', template.id);
+    } catch (err) {
+      console.warn("Used count update error:", err);
+    }
+
+    // Launch camera with overlay
     router.push({
       pathname: '/camera',
       params: { id: template.id }
@@ -68,7 +141,7 @@ export default function TemplateDetailScreen() {
             
             <TouchableOpacity 
               style={styles.circleButton} 
-              onPress={() => setIsBookmarked(!isBookmarked)}
+              onPress={handleToggleBookmark}
             >
               <Ionicons 
                 name={isBookmarked ? "bookmark" : "bookmark-outline"} 
@@ -93,21 +166,27 @@ export default function TemplateDetailScreen() {
             {template.difficulty}  ·  ~{template.time} setup
           </Text>
 
-          <Text style={styles.description}>{template.description}</Text>
+          {template.description ? (
+            <Text style={styles.description}>{template.description}</Text>
+          ) : null}
 
           {/* Stats Bar */}
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
               <Ionicons name="people-outline" size={20} color={Colors.rosePrimary} />
-              <Text style={styles.statValue}>{template.usedCount}</Text>
+              <Text style={styles.statValue}>{usedCount}</Text>
               <Text style={styles.statLabel}>Used</Text>
             </View>
             <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Ionicons name="heart-outline" size={20} color={Colors.rosePrimary} />
-              <Text style={styles.statValue}>{template.savedCount}</Text>
+            <TouchableOpacity style={styles.statItem} onPress={handleToggleBookmark}>
+              <Ionicons 
+                name={isBookmarked ? "heart" : "heart-outline"} 
+                size={20} 
+                color={isBookmarked ? Colors.rosePrimary : Colors.rosePrimary} 
+              />
+              <Text style={styles.statValue}>{savedCount}</Text>
               <Text style={styles.statLabel}>Saved</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Ionicons name="ribbon-outline" size={20} color={Colors.rosePrimary} />

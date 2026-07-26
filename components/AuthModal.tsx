@@ -65,12 +65,13 @@ export default function AuthModal({ visible, onClose, onOpenUploadModal }: AuthM
   const [signingInGoogle, setSigningInGoogle] = useState(false);
   const [updatingAvatar, setUpdatingAvatar] = useState(false);
 
-  // Automatically reset states when modal closes or user signs in
+  // Automatically reset states and close modal when user signs in
   useEffect(() => {
     if (user) {
       setLoadingAuth(false);
       setSigningInGoogle(false);
       setUpdatingAvatar(false);
+      onClose();
     }
   }, [user]);
 
@@ -144,8 +145,9 @@ export default function AuthModal({ visible, onClose, onOpenUploadModal }: AuthM
       await signInWithGoogle();
     } catch (error: any) {
       console.error("Google sign in error:", error);
-      setSigningInGoogle(false);
       Alert.alert("Google Error", error?.message || "Could not launch Google Sign-In.");
+    } finally {
+      setSigningInGoogle(false);
     }
   };
 

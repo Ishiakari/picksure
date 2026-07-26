@@ -8,7 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  ScrollView
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +19,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/theme';
+import { addCustomTemplateToFeed } from '@/hooks/useTemplates';
+import { Template } from '@/src/data/templates';
 
 const UPLOAD_CATEGORIES = [
   'Cafe & Lifestyle',
@@ -28,7 +32,11 @@ const UPLOAD_CATEGORIES = [
   'Couples & Friends'
 ];
 
-import { addCustomTemplateToFeed } from '@/hooks/useTemplates';
+const DIFFICULTIES: Array<'Beginner' | 'Intermediate' | 'Advanced'> = [
+  'Beginner',
+  'Intermediate',
+  'Advanced'
+];
 
 // Safe local file reader using native XMLHttpRequest to prevent fetch hangs on Android
 const getBlobFromUri = async (uri: string): Promise<Blob> => {
@@ -56,7 +64,9 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(UPLOAD_CATEGORIES[0]);
+  const [difficulty, setDifficulty] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Beginner');
   const [description, setDescription] = useState('');
+  const [guideInstructions, setGuideInstructions] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -91,6 +101,16 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       Alert.alert('Image Required', 'Please select a photo overlay to upload.');
       return;
     }
+
+    // Parse guide instructions into a clean array of tips
+    const parsedTips = guideInstructions
+      .split('\n')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    const tipsList = parsedTips.length > 0 
+      ? parsedTips 
+      : (description ? [description] : ['Align pose overlay with subject.']);
 
     try {
       setUploading(true);
@@ -141,8 +161,9 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
           description,
           image_url: publicUrl,
           creator_id: user?.id,
-          difficulty: 'Beginner',
+          difficulty,
           time: '2 min',
+          tips: tipsList,
         }
       ]).select();
 
@@ -159,30 +180,31 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
             description,
             image_url: publicUrl,
             creator_id: null,
-            difficulty: 'Beginner',
+            difficulty,
             time: '2 min',
+            tips: tipsList,
           }
         ]).select();
         dbError = fallbackResult.error;
         insertedRow = fallbackResult.data?.[0];
       }
 
-      // Create a local Template object for instant feed display, using DB uuid if insert succeeded
-      const newTemplateObj = {
+      // Create a local Template object for instant feed display
+      const newTemplateObj: Template = {
         id: insertedRow?.id || `custom-${Date.now()}`,
         title,
         category,
         description,
         imageSource: { uri: publicUrl },
-        difficulty: 'Beginner' as const,
+        difficulty,
         time: '2 min',
-        usedCount: '1',
+        usedCount: '0',
         savedCount: '0',
-        tips: ['Align pose overlay with subject.']
+        tips: tipsList,
       };
 
       if (dbError) {
-        console.warn("Database table insert blocked by RLS policy, added template to live app feed:", dbError.message);
+        console.warn("Database table insert warning:", dbError.message);
       }
 
       // Add template to active feed so it appears immediately on Home screen
@@ -193,7 +215,9 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       // Reset form
       setTitle('');
       setCategory(UPLOAD_CATEGORIES[0]);
+      setDifficulty('Beginner');
       setDescription('');
+      setGuideInstructions('');
       setSelectedImageUri(null);
       
       onUploadSuccess();
@@ -213,7 +237,10 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        style={styles.overlay}
+      >
         <SafeAreaView style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
@@ -223,88 +250,131 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
             </TouchableOpacity>
           </View>
 
-          {/* Form */}
-          <View style={styles.formContainer}>
-            {/* Image Picker */}
-            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-              {selectedImageUri ? (
-                <Image source={selectedImageUri} style={styles.previewImage} contentFit="cover" />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Ionicons name="cloud-upload-outline" size={36} color={Colors.rosePrimary} />
-                  <Text style={styles.imagePlaceholderText}>Select Pose Image</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+          {/* Form Content inside ScrollView */}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <View style={styles.formContainer}>
+              {/* Image Picker */}
+              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                {selectedImageUri ? (
+                  <Image source={selectedImageUri} style={styles.previewImage} contentFit="cover" />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Ionicons name="cloud-upload-outline" size={36} color={Colors.rosePrimary} />
+                    <Text style={styles.imagePlaceholderText}>Select Pose Image</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
-            {/* Title Input */}
-            <TextInput 
-              style={styles.input}
-              placeholder="Pose Title (e.g. Vintage Sunset Stance)"
-              placeholderTextColor="#99818c"
-              value={title}
-              onChangeText={setTitle}
-            />
+              {/* Title Input */}
+              <TextInput 
+                style={styles.input}
+                placeholder="Pose Title (e.g. Vintage Sunset Stance)"
+                placeholderTextColor="#99818c"
+                value={title}
+                onChangeText={setTitle}
+              />
 
-            {/* Category Select Label */}
-            <View style={styles.categoryHeader}>
-              <Text style={styles.categoryLabel}>Select Category</Text>
-            </View>
+              {/* Category Select Label */}
+              <View style={styles.labelHeader}>
+                <Text style={styles.inputLabel}>Category</Text>
+              </View>
 
-            {/* Horizontal Scroll Category Selector */}
-            <View style={styles.categorySelectorContainer}>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryScroll}
-              >
-                {UPLOAD_CATEGORIES.map((cat) => (
+              {/* Horizontal Scroll Category Selector */}
+              <View style={styles.categorySelectorContainer}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoryScroll}
+                >
+                  {UPLOAD_CATEGORIES.map((cat) => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoryButton,
+                        category === cat && styles.activeCategoryButton
+                      ]}
+                      onPress={() => setCategory(cat)}
+                    >
+                      <Text 
+                        style={[
+                          styles.categoryButtonText,
+                          category === cat && styles.activeCategoryButtonText
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Difficulty Select Label */}
+              <View style={styles.labelHeader}>
+                <Text style={styles.inputLabel}>Posing Difficulty</Text>
+              </View>
+
+              {/* Segmented Difficulty Buttons */}
+              <View style={styles.difficultyContainer}>
+                {DIFFICULTIES.map((diff) => (
                   <TouchableOpacity
-                    key={cat}
+                    key={diff}
                     style={[
-                      styles.categoryButton,
-                      category === cat && styles.activeCategoryButton
+                      styles.difficultyButton,
+                      difficulty === diff && styles.activeDifficultyButton
                     ]}
-                    onPress={() => setCategory(cat)}
+                    onPress={() => setDifficulty(diff)}
                   >
                     <Text 
                       style={[
-                        styles.categoryButtonText,
-                        category === cat && styles.activeCategoryButtonText
+                        styles.difficultyText,
+                        difficulty === diff && styles.activeDifficultyText
                       ]}
                     >
-                      {cat}
+                      {diff}
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
+
+              {/* Director's Guide / Instructions Input */}
+              <View style={styles.labelHeader}>
+                <Text style={styles.inputLabel}>Director's Guide / Posing Instructions</Text>
+              </View>
+              <TextInput 
+                style={[styles.input, { height: 90, textAlignVertical: 'top' }]}
+                placeholder={"Write framing & pose tips (one per line):\n• Position camera at chest level\n• Subject turns 45 degrees"}
+                placeholderTextColor="#99818c"
+                value={guideInstructions}
+                onChangeText={setGuideInstructions}
+                multiline
+              />
+
+              {/* Description Input */}
+              <TextInput 
+                style={[styles.input, { height: 60 }]}
+                placeholder="Short aesthetic description..."
+                placeholderTextColor="#99818c"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+              />
+
+              {/* Submit Button */}
+              <TouchableOpacity 
+                style={styles.submitButton} 
+                onPress={handleUpload}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color={Colors.darkText} />
+                ) : (
+                  <Text style={styles.submitButtonText}>Publish Overlay Template</Text>
+                )}
+              </TouchableOpacity>
             </View>
-
-            {/* Description Input */}
-            <TextInput 
-              style={[styles.input, { height: 60 }]}
-              placeholder="Brief description or tips for aligning..."
-              placeholderTextColor="#99818c"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
-
-            {/* Submit Button */}
-            <TouchableOpacity 
-              style={styles.submitButton} 
-              onPress={handleUpload}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <ActivityIndicator size="small" color={Colors.darkText} />
-              ) : (
-                <Text style={styles.submitButtonText}>Publish Overlay Template</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </SafeAreaView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -320,7 +390,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 24,
+    maxHeight: '90%',
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -328,10 +399,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   modalTitle: {
     fontSize: 20,
@@ -347,6 +418,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   formContainer: {
     gap: 12,
@@ -385,12 +459,12 @@ const styles = StyleSheet.create({
     color: Colors.creamLight,
     fontSize: 14,
   },
-  categoryHeader: {
+  labelHeader: {
     marginTop: 4,
     marginBottom: -4,
   },
-  categoryLabel: {
-    fontSize: 13,
+  inputLabel: {
+    fontSize: 12,
     fontWeight: '800',
     color: Colors.creamLight,
   },
@@ -421,6 +495,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   activeCategoryButtonText: {
+    color: Colors.darkText,
+  },
+  difficultyContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: Colors.darkCard,
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  difficultyButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  activeDifficultyButton: {
+    backgroundColor: Colors.rosePrimary,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.roseSoft,
+  },
+  activeDifficultyText: {
     color: Colors.darkText,
   },
   submitButton: {

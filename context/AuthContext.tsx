@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Linking } from 'react-native';
+import * as AuthSession from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
 import { 
   signInWithGoogle as googleSignIn,
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Deep Link url handler
     const handleDeepLink = async (event: { url: string }) => {
       const url = event.url;
-      if (url.includes('access_token')) {
+      if (url.includes('access_token') || url.includes('refresh_token')) {
         const accessToken = extractToken(url, 'access_token');
         const refreshToken = extractToken(url, 'refresh_token');
 

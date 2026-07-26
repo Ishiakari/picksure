@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Template } from '@/src/data/templates';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/theme';
 import PickSureLogo from '@/components/PickSureLogo';
 import AuthModal from '@/components/AuthModal';
@@ -37,6 +38,7 @@ const CATEGORIES = [
 
 export default function HomeScreen() {
   const { templates, refreshing, refresh } = useTemplates();
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -77,14 +79,20 @@ export default function HomeScreen() {
   };
 
   const handleFloatingCameraPress = () => {
-    // Open camera without any specific template
     router.push({
       pathname: '/camera',
     });
   };
 
+  const handleQuickUploadPress = () => {
+    if (user) {
+      setIsUploadModalVisible(true);
+    } else {
+      setIsAuthModalVisible(true);
+    }
+  };
+
   const renderCard = (item: Template) => {
-    // Custom aspect ratios to simulate height variations
     let cardHeight = 220;
     if (item.id === 'cafe-01') cardHeight = 240;
     if (item.id === 'ootd-01') cardHeight = 220;
@@ -161,6 +169,7 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.iconButton} onPress={() => setIsSearchActive(true)}>
                 <Ionicons name="search-outline" size={22} color={Colors.creamLight} />
               </TouchableOpacity>
+
               <TouchableOpacity style={styles.iconButton} onPress={() => setIsAuthModalVisible(true)}>
                 <Ionicons name="person-outline" size={22} color={Colors.creamLight} />
               </TouchableOpacity>
@@ -193,7 +202,7 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Masonry / Grid Templates Feed Feed */}
+      {/* Masonry / Grid Templates Feed */}
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.feedScroll}
@@ -218,18 +227,31 @@ export default function HomeScreen() {
           </View>
         </View>
         
-        {/* Spacer for floating action button */}
-        <View style={{ height: 100 }} />
+        {/* Spacer for floating action buttons */}
+        <View style={{ height: 110 }} />
       </ScrollView>
 
-      {/* Floating Shutter Button */}
-      <TouchableOpacity 
-        style={styles.floatingButton} 
-        activeOpacity={0.8}
-        onPress={handleFloatingCameraPress}
-      >
-        <Ionicons name="camera" size={32} color="#FFF" />
-      </TouchableOpacity>
+      {/* Floating Action Dock */}
+      <View style={styles.floatingDockContainer} pointerEvents="box-none">
+        {/* Floating Upload Pill Button */}
+        <TouchableOpacity 
+          style={styles.floatingUploadButton} 
+          activeOpacity={0.85}
+          onPress={handleQuickUploadPress}
+        >
+          <Ionicons name="add-circle" size={20} color={Colors.darkText} style={{ marginRight: 6 }} />
+          <Text style={styles.floatingUploadText}>Upload Pose</Text>
+        </TouchableOpacity>
+
+        {/* Floating Camera Button */}
+        <TouchableOpacity 
+          style={styles.floatingCameraButton} 
+          activeOpacity={0.85}
+          onPress={handleFloatingCameraPress}
+        >
+          <Ionicons name="camera" size={26} color={Colors.creamLight} />
+        </TouchableOpacity>
+      </View>
 
       {/* Google Authentication & User Profile Modal */}
       <AuthModal 
@@ -243,7 +265,7 @@ export default function HomeScreen() {
         visible={isUploadModalVisible} 
         onClose={() => setIsUploadModalVisible(false)} 
         onUploadSuccess={() => {
-          // Templates list will update automatically
+          // Live feed updates automatically
         }}
       />
     </SafeAreaView>
@@ -260,37 +282,54 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingVertical: 14,
   },
   brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   brandTitleContainer: {
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '900',
     color: Colors.creamLight,
-    letterSpacing: 2,
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
   headerSubtitle: {
-    fontSize: 11,
     color: Colors.roseSoft,
-    marginTop: 2,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '600',
   },
   headerIcons: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.rosePrimary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: Colors.rosePrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerUploadText: {
+    color: Colors.darkText,
+    fontSize: 12,
+    fontWeight: '900',
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.darkCard,
     justifyContent: 'center',
     alignItems: 'center',
@@ -298,43 +337,42 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
     backgroundColor: Colors.darkCard,
     borderRadius: 20,
-    paddingLeft: 16,
-    paddingRight: 4,
-    height: 48,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: Colors.rosePrimary,
+    borderColor: Colors.border,
   },
   searchInput: {
     flex: 1,
     color: Colors.creamLight,
-    fontSize: 15,
+    fontSize: 14,
+    paddingVertical: 8,
   },
   categoryScroll: {
     paddingHorizontal: 20,
-    alignItems: 'center',
     gap: 8,
+    alignItems: 'center',
   },
   categoryPill: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+    backgroundColor: Colors.darkCard,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: Colors.darkCard,
   },
   categoryPillActive: {
     backgroundColor: Colors.rosePrimary,
     borderColor: Colors.rosePrimary,
   },
   categoryText: {
-    color: '#b89fa9',
-    fontWeight: '600',
+    color: Colors.roseSoft,
     fontSize: 13,
+    fontWeight: '700',
   },
   categoryTextActive: {
     color: Colors.darkText,
@@ -404,21 +442,47 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  floatingButton: {
+  floatingDockContainer: {
     position: 'absolute',
     bottom: 24,
-    alignSelf: 'center',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.rosePrimary,
-    justifyContent: 'center',
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  floatingUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.rosePrimary,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 28,
     shadowColor: Colors.rosePrimary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
     elevation: 8,
   },
-});;
-
+  floatingUploadText: {
+    color: Colors.darkText,
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  floatingCameraButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: Colors.darkCard,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.rosePrimary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+});
