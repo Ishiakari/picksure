@@ -415,16 +415,28 @@ export default function CameraScreen() {
             <Text style={[styles.zoomCapsuleText, zoom === 0 && styles.zoomCapsuleTextActive]}>1x</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.zoomCapsulePill, zoom === 0.08 && styles.zoomCapsulePillActive]} 
-            onPress={() => handleZoomPress(0.08)}
+            style={[styles.zoomCapsulePill, zoom === 0.05 && styles.zoomCapsulePillActive]} 
+            onPress={() => handleZoomPress(0.05)}
           >
-            <Text style={[styles.zoomCapsuleText, zoom === 0.08 && styles.zoomCapsuleTextActive]}>1.5x</Text>
+            <Text style={[styles.zoomCapsuleText, zoom === 0.05 && styles.zoomCapsuleTextActive]}>1.5x</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.zoomCapsulePill, zoom === 0.15 && styles.zoomCapsulePillActive]} 
-            onPress={() => handleZoomPress(0.15)}
+            style={[styles.zoomCapsulePill, zoom === 0.1 && styles.zoomCapsulePillActive]} 
+            onPress={() => handleZoomPress(0.1)}
           >
-            <Text style={[styles.zoomCapsuleText, zoom === 0.15 && styles.zoomCapsuleTextActive]}>2x</Text>
+            <Text style={[styles.zoomCapsuleText, zoom === 0.1 && styles.zoomCapsuleTextActive]}>2x</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.zoomCapsulePill, zoom === 0.25 && styles.zoomCapsulePillActive]} 
+            onPress={() => handleZoomPress(0.25)}
+          >
+            <Text style={[styles.zoomCapsuleText, zoom === 0.25 && styles.zoomCapsuleTextActive]}>5x</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.zoomCapsulePill, zoom === 1.0 && styles.zoomCapsulePillActive]} 
+            onPress={() => handleZoomPress(1.0)}
+          >
+            <Text style={[styles.zoomCapsuleText, zoom === 1.0 && styles.zoomCapsuleTextActive]}>MAX</Text>
           </TouchableOpacity>
         </View>
 
