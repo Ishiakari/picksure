@@ -22,8 +22,9 @@ import { Colors } from '@/constants/theme';
 import SliderOpacity from '@/components/SliderOpacity';
 import SessionGalleryModal from '@/components/SessionGalleryModal';
 
-const { width, height } = Dimensions.get('window');
-const CAMERA_HEIGHT = width * (4 / 3);
+const { width } = Dimensions.get('window');
+const VIEWFINDER_WIDTH = width - 16;
+const CAMERA_HEIGHT = VIEWFINDER_WIDTH * (4 / 3);
 
 export default function CameraScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -252,6 +253,13 @@ export default function CameraScreen() {
         {/* Horizon Level Indicator */}
         {showLeveler && (
           <View style={styles.levelerWrapper} pointerEvents="none">
+            {isLevel && (
+              <View style={styles.levelBadgeContainer}>
+                <View style={styles.levelBadgePill}>
+                  <Text style={styles.levelBadgeText}>LEVEL ✓</Text>
+                </View>
+              </View>
+            )}
             <View 
               style={[
                 styles.levelerLine,
@@ -259,11 +267,6 @@ export default function CameraScreen() {
                 isLevel && styles.levelerLinePerfect
               ]}
             />
-            {isLevel && (
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelBadgeText}>LEVEL ✓</Text>
-              </View>
-            )}
           </View>
         )}
 
@@ -288,41 +291,39 @@ export default function CameraScreen() {
           </View>
         )}
 
-        {/* Camera Parameter Widgets (Grid, Flash, Timer, Leveler, Outline) */}
-        <View style={styles.widgetBar}>
+        {/* Camera Parameter Widgets (Grid, Timer, Flash, Filter) Floating inside Viewfinder */}
+        <View style={styles.widgetBarInside}>
           <TouchableOpacity 
             style={[styles.widgetButton, showGrid && styles.widgetButtonActive]}
             onPress={() => setShowGrid(!showGrid)}
           >
-            <Ionicons name="grid" size={18} color="#FFF" />
+            <Ionicons name="grid" size={20} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.widgetButton, flash === 'on' && styles.widgetButtonActive]}
-            onPress={toggleFlash}
-          >
-            <Ionicons name={flash === 'on' ? "flash" : "flash-off"} size={18} color="#FFF" />
-          </TouchableOpacity>
+
           <TouchableOpacity 
             style={[styles.widgetButton, timerMode > 0 && styles.widgetButtonActive]}
             onPress={toggleTimer}
           >
             {timerMode === 0 ? (
-               <Ionicons name="time-outline" size={18} color="#FFF" />
+               <Ionicons name="time-outline" size={20} color="#FFF" />
             ) : (
                <Text style={styles.timerWidgetText}>{timerMode}s</Text>
             )}
           </TouchableOpacity>
+
           <TouchableOpacity 
-            style={[styles.widgetButton, showLeveler && styles.widgetButtonActive]}
-            onPress={() => setShowLeveler(!showLeveler)}
+            style={[styles.flashPillButton, flash === 'on' && styles.widgetButtonActive]}
+            onPress={toggleFlash}
           >
-            <Ionicons name="compass-outline" size={18} color="#FFF" />
+            <Ionicons name={flash === 'on' ? "flash" : "flash-outline"} size={18} color="#FFF" style={{ marginRight: 4 }} />
+            <Text style={styles.flashPillText}>{flash === 'on' ? 'AUTO\n+ FLASH' : 'AUTO\nFLASH'}</Text>
           </TouchableOpacity>
+
           <TouchableOpacity 
             style={[styles.widgetButton, isOutlineMode && styles.widgetButtonActive]}
             onPress={() => setIsOutlineMode(!isOutlineMode)}
           >
-            <Ionicons name="contrast" size={18} color="#FFF" />
+            <Ionicons name="funnel-outline" size={20} color="#FFF" />
           </TouchableOpacity>
         </View>
       </>
@@ -341,7 +342,7 @@ export default function CameraScreen() {
           style={styles.headerButton} 
           onPress={() => router.back()}
         >
-          <Ionicons name="close" size={26} color="#FFF" />
+          <Ionicons name="close" size={24} color="#FFF" />
         </TouchableOpacity>
         
         <View style={styles.headerTextContainer}>
@@ -356,7 +357,7 @@ export default function CameraScreen() {
           >
             <Ionicons 
               name="layers-outline" 
-              size={24} 
+              size={22} 
               color={showReferenceImage ? Colors.rosePrimary : "#FFF"} 
             />
           </TouchableOpacity>
@@ -365,7 +366,7 @@ export default function CameraScreen() {
         )}
       </View>
 
-      {/* Main Camera Viewfinder Container */}
+      {/* Main Rounded Camera Viewfinder Container */}
       <View style={[styles.cameraContainer, { height: CAMERA_HEIGHT }]}>
         {isWeb ? (
           <View style={StyleSheet.absoluteFill}>
@@ -405,33 +406,33 @@ export default function CameraScreen() {
           />
         )}
 
-        {/* Zoom Selector Bar */}
-        <View style={styles.zoomBar}>
+        {/* Capsule Zoom Selector Bar */}
+        <View style={styles.zoomCapsuleBar}>
           <TouchableOpacity 
-            style={[styles.zoomPill, zoom === 0 && styles.zoomPillActive]} 
+            style={[styles.zoomCapsulePill, zoom === 0 && styles.zoomCapsulePillActive]} 
             onPress={() => handleZoomPress(0)}
           >
-            <Text style={[styles.zoomPillText, zoom === 0 && styles.zoomPillTextActive]}>1x</Text>
+            <Text style={[styles.zoomCapsuleText, zoom === 0 && styles.zoomCapsuleTextActive]}>1x</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.zoomPill, zoom === 0.08 && styles.zoomPillActive]} 
+            style={[styles.zoomCapsulePill, zoom === 0.08 && styles.zoomCapsulePillActive]} 
             onPress={() => handleZoomPress(0.08)}
           >
-            <Text style={[styles.zoomPillText, zoom === 0.08 && styles.zoomPillTextActive]}>1.5x</Text>
+            <Text style={[styles.zoomCapsuleText, zoom === 0.08 && styles.zoomCapsuleTextActive]}>1.5x</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.zoomPill, zoom === 0.15 && styles.zoomPillActive]} 
+            style={[styles.zoomCapsulePill, zoom === 0.15 && styles.zoomCapsulePillActive]} 
             onPress={() => handleZoomPress(0.15)}
           >
-            <Text style={[styles.zoomPillText, zoom === 0.15 && styles.zoomPillTextActive]}>2x</Text>
+            <Text style={[styles.zoomCapsuleText, zoom === 0.15 && styles.zoomCapsuleTextActive]}>2x</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Shutter Controls */}
+        {/* Shutter Dock Row */}
         <View style={styles.shutterRow}>
           {/* Gallery Thumbnail */}
           <TouchableOpacity 
-            style={styles.galleryButton}
+            style={styles.circleDockButton}
             onPress={() => setIsGalleryVisible(true)}
           >
             {capturedPhotosList.length > 0 ? (
@@ -450,19 +451,20 @@ export default function CameraScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Shutter Button */}
+          {/* Shutter Button with Rose Pink Ring Glow */}
           <TouchableOpacity 
-            style={[styles.shutterOuter, isCapturing && styles.shutterOuterDisabled]} 
+            style={[styles.shutterOuterRing, isCapturing && styles.shutterOuterDisabled]} 
             activeOpacity={0.8}
             onPress={handleCapturePress}
             disabled={isCapturing}
           >
-            <View style={styles.shutterInner} />
+            <View style={styles.shutterInnerCircle} />
           </TouchableOpacity>
 
           {/* Flip Camera */}
-          <TouchableOpacity style={styles.circleControl} onPress={toggleFacing}>
-            <Ionicons name="camera-reverse-outline" size={26} color="#FFF" />
+          <TouchableOpacity style={styles.circleDockButton} onPress={toggleFacing}>
+            <Ionicons name="camera-reverse-outline" size={24} color="#FFF" />
+            <Ionicons name="sparkles" size={10} color={Colors.rosePrimary} style={styles.sparkleIcon} />
           </TouchableOpacity>
         </View>
       </View>
@@ -528,7 +530,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(35, 35, 35, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTextContainer: {
     alignItems: 'center',
@@ -537,19 +541,21 @@ const styles = StyleSheet.create({
     color: Colors.rosePrimary,
     fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   templateTitle: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     marginTop: 2,
   },
   cameraContainer: {
-    width: width,
-    position: 'relative',
+    width: VIEWFINDER_WIDTH,
+    alignSelf: 'center',
+    borderRadius: 28,
     backgroundColor: '#111',
     overflow: 'hidden',
+    position: 'relative',
   },
   webCameraMockBanner: {
     position: 'absolute',
@@ -579,14 +585,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   gridLineVertical: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   levelerWrapper: {
     ...StyleSheet.absoluteFillObject,
@@ -594,73 +600,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   levelerLine: {
-    width: '60%',
+    width: '55%',
     height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
     borderRadius: 1,
   },
   levelerLinePerfect: {
     backgroundColor: '#4EED97',
-    height: 3,
+    height: 3.5,
     shadowColor: '#4EED97',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  levelBadge: {
+  levelBadgeContainer: {
     position: 'absolute',
-    top: '38%',
-    backgroundColor: '#4EED97',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
+    top: '42%',
+    alignItems: 'center',
+  },
+  levelBadgePill: {
+    backgroundColor: 'rgba(30, 30, 30, 0.85)',
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   levelBadgeText: {
-    color: '#000',
-    fontSize: 10,
-    fontWeight: '900',
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   cornerMarker: {
     position: 'absolute',
-    width: 24,
-    height: 24,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    width: 22,
+    height: 22,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
   },
   topLeftCorner: {
-    top: 20,
-    left: 20,
+    top: 16,
+    left: 16,
     borderTopWidth: 2,
     borderLeftWidth: 2,
+    borderTopLeftRadius: 4,
   },
   topRightCorner: {
-    top: 20,
-    right: 20,
+    top: 16,
+    right: 16,
     borderTopWidth: 2,
     borderRightWidth: 2,
+    borderTopRightRadius: 4,
   },
   bottomLeftCorner: {
-    bottom: 20,
-    left: 20,
+    bottom: 16,
+    left: 16,
     borderBottomWidth: 2,
     borderLeftWidth: 2,
+    borderBottomLeftRadius: 4,
   },
   bottomRightCorner: {
-    bottom: 20,
-    right: 20,
+    bottom: 16,
+    right: 16,
     borderBottomWidth: 2,
     borderRightWidth: 2,
+    borderBottomRightRadius: 4,
   },
   alignIndicator: {
     position: 'absolute',
-    top: 20,
+    top: 16,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 16,
     gap: 6,
   },
@@ -672,12 +687,12 @@ const styles = StyleSheet.create({
   },
   alignText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   countdownOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 20,
@@ -687,22 +702,39 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: Colors.rosePrimary,
   },
-  widgetBar: {
+  widgetBarInside: {
     position: 'absolute',
     bottom: 16,
-    left: 16,
+    alignSelf: 'center',
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 12,
   },
   widgetButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(25, 25, 25, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  flashPillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(25, 25, 25, 0.75)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  flashPillText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '900',
+    lineHeight: 11,
   },
   widgetButtonActive: {
     backgroundColor: Colors.rosePrimary,
@@ -710,7 +742,7 @@ const styles = StyleSheet.create({
   },
   timerWidgetText: {
     color: '#FFF',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '900',
   },
   bottomControls: {
@@ -720,77 +752,83 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
-  zoomBar: {
+  zoomCapsuleBar: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    marginVertical: 4,
+    backgroundColor: 'rgba(30, 30, 30, 0.8)',
+    borderRadius: 20,
+    padding: 3,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  zoomPill: {
-    width: 36,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  zoomCapsulePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  zoomPillActive: {
+  zoomCapsulePillActive: {
     backgroundColor: Colors.rosePrimary,
   },
-  zoomPillText: {
-    color: '#FFF',
-    fontSize: 11,
+  zoomCapsuleText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
     fontWeight: '800',
   },
-  zoomPillTextActive: {
+  zoomCapsuleTextActive: {
     color: Colors.darkText,
+    fontWeight: '900',
   },
   shutterRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
   },
-  circleControl: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  circleDockButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(35, 35, 35, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    position: 'relative',
   },
-  shutterOuter: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
+  sparkleIcon: {
+    position: 'absolute',
+    bottom: 6,
+    right: 10,
+  },
+  shutterOuterRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     borderWidth: 4,
     borderColor: Colors.rosePrimary,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 3,
+    padding: 4,
+    shadowColor: Colors.rosePrimary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8,
   },
   shutterOuterDisabled: {
     opacity: 0.5,
   },
-  shutterInner: {
+  shutterInnerCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
     backgroundColor: '#FFF',
   },
-  galleryButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'visible',
-  },
   galleryImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 2,
     borderColor: Colors.rosePrimary,
   },
