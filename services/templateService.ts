@@ -2,11 +2,29 @@
 import { TEMPLATES, Template } from '@/src/data/templates';
 import { supabase } from '@/lib/supabase';
 
+export interface PaginatedTemplatesResult {
+  templates: Template[];
+  hasMore: boolean;
+}
+
 export const templateService = {
-  async getTemplates(): Promise<Template[]> {
+  async getTemplates(page = 0, limit = 10): Promise<PaginatedTemplatesResult> {
     try {
-      const { data, error } = await supabase.from('templates').select('*');
-      if (error || !data) return TEMPLATES;
+      const from = page * limit;
+      const to = (page + 1) * limit - 1;
+
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error || !data) {
+        return { 
+          templates: page === 0 ? TEMPLATES : [], 
+          hasMore: false 
+        };
+      }
       
       const remoteTemplates: Template[] = data.map(item => {
         let tipsArray: string[] = [];
@@ -47,11 +65,14 @@ export const templateService = {
         };
       });
 
-      // Combine local default templates with user uploaded templates
-      return [...remoteTemplates, ...TEMPLATES];
+      // Combine local default templates with remote templates on page 0
+      const combined = page === 0 ? [...remoteTemplates, ...TEMPLATES] : remoteTemplates;
+      const hasMore = data.length === limit;
+
+      return { templates: combined, hasMore };
     } catch (err) {
       console.error("Error in templateService.getTemplates:", err);
-      return TEMPLATES;
+      return { templates: page === 0 ? TEMPLATES : [], hasMore: false };
     }
   }
 };

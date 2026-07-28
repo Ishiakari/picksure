@@ -8,7 +8,10 @@ import {
   StatusBar,
   Dimensions,
   TextInput,
-  RefreshControl
+  RefreshControl,
+  ActivityIndicator,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -37,7 +40,14 @@ const CATEGORIES = [
 ];
 
 export default function HomeScreen() {
-  const { templates, refreshing, refresh } = useTemplates();
+  const { 
+    templates, 
+    refreshing, 
+    refresh, 
+    loadingMore, 
+    loadMore, 
+    hasMore 
+  } = useTemplates();
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -206,6 +216,14 @@ export default function HomeScreen() {
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.feedScroll}
+        scrollEventThrottle={16}
+        onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+          const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 300;
+          if (isCloseToBottom && hasMore && !loadingMore) {
+            loadMore();
+          }
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -226,6 +244,14 @@ export default function HomeScreen() {
             {rightColTemplates.map(item => renderCard(item))}
           </View>
         </View>
+
+        {/* Infinite Scroll Loading Indicator */}
+        {loadingMore && (
+          <View style={styles.loadingMoreContainer}>
+            <ActivityIndicator size="small" color={Colors.rosePrimary} />
+            <Text style={styles.loadingMoreText}>Loading more poses...</Text>
+          </View>
+        )}
         
         {/* Spacer for floating action buttons */}
         <View style={{ height: 110 }} />
@@ -484,5 +510,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 8,
+  },
+  loadingMoreContainer: {
+    paddingVertical: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingMoreText: {
+    color: Colors.roseSoft,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
