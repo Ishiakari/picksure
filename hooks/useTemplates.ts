@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Image } from 'expo-image';
 import { TEMPLATES, Template } from '@/src/data/templates';
 import { templateService } from '@/services/templateService';
 
@@ -13,10 +14,15 @@ function notifyListeners() {
 export function addCustomTemplateToFeed(newTemplate: Template) {
   cachedTemplates = [newTemplate, ...cachedTemplates];
   notifyListeners();
+  
+  // Prefetch image if remote URI
+  if (typeof newTemplate.imageSource === 'object' && 'uri' in newTemplate.imageSource && newTemplate.imageSource.uri) {
+    Image.prefetch(newTemplate.imageSource.uri, 'memory-disk');
+  }
 }
 
 /**
- * Custom React Hook for accessing template dataset with infinite pagination.
+ * Custom React Hook for accessing template dataset with infinite pagination and image prefetching.
  */
 export function useTemplates() {
   const [templates, setTemplates] = useState<Template[]>(cachedTemplates);
@@ -26,6 +32,23 @@ export function useTemplates() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const prefetchImages = (items: Template[]) => {
+    const urlsToPrefetch: string[] = [];
+    items.forEach(item => {
+      if (typeof item.imageSource === 'object' && 'uri' in item.imageSource && item.imageSource.uri) {
+        if (item.imageSource.uri.startsWith('http')) {
+          urlsToPrefetch.push(item.imageSource.uri);
+        }
+      }
+    });
+
+    if (urlsToPrefetch.length > 0) {
+      Image.prefetch(urlsToPrefetch, 'memory-disk').catch(err => {
+        console.warn("Background image prefetch warning:", err);
+      });
+    }
+  };
 
   const fetchPage = async (pageToFetch: number, isRefresh = false) => {
     try {
@@ -39,6 +62,9 @@ export function useTemplates() {
 
       const res = await templateService.getTemplates(pageToFetch, 10);
       setHasMore(res.hasMore);
+
+      // Background pre-fetch images into native disk/memory cache
+      prefetchImages(res.templates);
 
       if (isRefresh || pageToFetch === 0) {
         const existingIds = new Set(TEMPLATES.map(t => t.id));

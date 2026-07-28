@@ -123,6 +123,7 @@ export default function HomeScreen() {
           style={styles.cardImage} 
           contentFit="cover"
           transition={200}
+          cachePolicy="memory-disk"
         />
         <View style={styles.cardGradientOverlay} />
         

@@ -219,6 +219,7 @@ export default function CameraScreen() {
             style={[StyleSheet.absoluteFill, { opacity: getOverlayOpacity() }]}
             contentFit="cover"
             pointerEvents="none"
+            cachePolicy="memory-disk"
           />
         )}
 

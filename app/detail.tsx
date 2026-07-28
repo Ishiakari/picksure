@@ -127,6 +127,8 @@ export default function TemplateDetailScreen() {
             source={template.imageSource} 
             style={styles.heroImage} 
             contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
           />
           <View style={styles.heroOverlay} />
           
@@ -222,6 +224,7 @@ export default function TemplateDetailScreen() {
                 source={template.imageSource}
                 style={[StyleSheet.absoluteFill, { opacity: 0.4 }]}
                 contentFit="cover"
+                cachePolicy="memory-disk"
               />
               <Svg width="100%" height="100%" viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
                 {/* 3x3 Grid Lines */}
