@@ -153,17 +153,21 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         }
       }
 
+      // Combine description and Director's Guide tips for full database schema compatibility
+      const fullDescription = guideInstructions.trim() 
+        ? `${description ? description.trim() + '\n\n' : ''}DIRECTOR'S GUIDE:\n${tipsList.map(t => '• ' + t).join('\n')}` 
+        : description;
+
       // 5. Insert row into Supabase 'templates' database table
       let insertResult = await supabase.from('templates').insert([
         {
           title,
           category,
-          description,
+          description: fullDescription,
           image_url: publicUrl,
           creator_id: user?.id,
           difficulty,
           time: '2 min',
-          tips: tipsList,
         }
       ]).select();
 
@@ -177,12 +181,11 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
           {
             title,
             category,
-            description,
+            description: fullDescription,
             image_url: publicUrl,
             creator_id: null,
             difficulty,
             time: '2 min',
-            tips: tipsList,
           }
         ]).select();
         dbError = fallbackResult.error;
@@ -203,8 +206,13 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         tips: tipsList,
       };
 
+      if (storageError) {
+        console.warn("Storage upload warning:", storageError.message);
+      }
+
       if (dbError) {
-        console.warn("Database table insert warning:", dbError.message);
+        console.error("Database insert error:", dbError.message);
+        throw new Error(`Database error: ${dbError.message}`);
       }
 
       // Add template to active feed so it appears immediately on Home screen

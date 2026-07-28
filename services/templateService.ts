@@ -9,20 +9,35 @@ export const templateService = {
       if (error || !data) return TEMPLATES;
       
       const remoteTemplates: Template[] = data.map(item => {
-        let tipsArray = ['Align pose overlay with subject.'];
-        if (Array.isArray(item.tips) && item.tips.length > 0) {
-          tipsArray = item.tips;
-        } else if (typeof item.tips === 'string' && item.tips.trim().length > 0) {
-          tipsArray = item.tips.split('\n').filter((t: string) => t.trim().length > 0);
-        } else if (item.description && item.description.trim().length > 0) {
-          tipsArray = [item.description];
+        let tipsArray: string[] = [];
+        let cleanDesc = item.description || '';
+
+        // If description contains DIRECTOR'S GUIDE, parse tips out of it
+        if (cleanDesc.includes("DIRECTOR'S GUIDE:")) {
+          const parts = cleanDesc.split("DIRECTOR'S GUIDE:");
+          cleanDesc = parts[0].trim();
+          tipsArray = parts[1]
+            .split('\n')
+            .map((t: string) => t.replace(/^[•\-\*]\s*/, '').trim())
+            .filter((t: string) => t.length > 0);
+        }
+
+        // Fallbacks
+        if (tipsArray.length === 0) {
+          if (Array.isArray(item.tips) && item.tips.length > 0) {
+            tipsArray = item.tips;
+          } else if (cleanDesc.length > 0) {
+            tipsArray = [cleanDesc];
+          } else {
+            tipsArray = ['Align pose overlay with subject.'];
+          }
         }
 
         return {
           id: item.id,
           title: item.title || 'Untitled Pose',
           category: item.category || 'Cafe & Lifestyle',
-          description: item.description || '',
+          description: cleanDesc,
           imageSource: { uri: item.image_url },
           difficulty: (item.difficulty as 'Beginner' | 'Intermediate' | 'Advanced') || 'Beginner',
           time: item.time || '2 min',
