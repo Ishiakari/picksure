@@ -4,27 +4,26 @@ import {
   View, 
   Text, 
   TouchableOpacity, 
-  StatusBar,
-  Dimensions,
-  Animated,
-  ActivityIndicator,
-  Platform
+  StatusBar, 
+  Dimensions, 
+  Animated, 
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
-import { Camera, CameraView } from 'expo-camera';
-import * as MediaLibrary from 'expo-media-library';
-import { Ionicons } from '@expo/vector-icons';
-import Svg, { Line as SvgLine, Circle as SvgCircle, Rect as SvgRect } from 'react-native-svg';
 import { Image } from 'expo-image';
+import { useLocalSearchParams, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { CameraView, Camera } from 'expo-camera';
+import * as MediaLibrary from 'expo-media-library';
+import { Accelerometer } from 'expo-sensors';
 import { useTemplates } from '@/hooks/useTemplates';
+import { Colors } from '@/constants/theme';
 import SliderOpacity from '@/components/SliderOpacity';
 import SessionGalleryModal from '@/components/SessionGalleryModal';
-import { Colors } from '@/constants/theme';
 
-const { width } = Dimensions.get('window');
-// Standard 3:4 aspect ratio camera container height
-const CAMERA_HEIGHT = width * 1.333;
+const { width, height } = Dimensions.get('window');
+const CAMERA_HEIGHT = width * (4 / 3);
 
 export default function CameraScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,8 +41,11 @@ export default function CameraScreen() {
   // Camera Settings State
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [flash, setFlash] = useState<'off' | 'on'>('off');
+  const [zoom, setZoom] = useState<number>(0);
   const [showGrid, setShowGrid] = useState(true);
   const [showReferenceImage, setShowReferenceImage] = useState(true);
+  const [isOutlineMode, setIsOutlineMode] = useState<boolean>(false);
+  const [showLeveler, setShowLeveler] = useState<boolean>(true);
   const [opacityValue, setOpacityValue] = useState<number>(55);
   const [capturedPhoto, setCapturedPhoto] = useState<any>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -52,16 +54,19 @@ export default function CameraScreen() {
   const [capturedPhotosList, setCapturedPhotosList] = useState<string[]>([]);
   const [isGalleryVisible, setIsGalleryVisible] = useState(false);
 
+  // Sensor Leveler State
+  const [rollAngle, setRollAngle] = useState<number>(0);
+  const [isLevel, setIsLevel] = useState<boolean>(false);
+
   // Animated value for flashing dot
   const flashAnim = useRef(new Animated.Value(1)).current;
   const cameraRef = useRef<any>(null);
 
-  // Request permissions
+  // Request permissions & setup Accelerometer
   useEffect(() => {
     (async () => {
       try {
         if (Platform.OS !== 'web') {
-          // Check/Request Camera permissions safely
           const cameraStatus = await Camera.getCameraPermissionsAsync();
           if (cameraStatus.granted) {
             setCameraPermission(cameraStatus);
@@ -70,7 +75,6 @@ export default function CameraScreen() {
             setCameraPermission(requested);
           }
 
-          // Check/Request Media permissions safely
           const mediaStatus = await MediaLibrary.requestPermissionsAsync();
           setMediaPermission(mediaStatus.status === 'granted');
         } else {
@@ -79,11 +83,21 @@ export default function CameraScreen() {
         }
       } catch (err) {
         console.warn("Permissions checking failed:", err);
-        // Fallback to granted so developer can see the screens without crashing
         setCameraPermission({ granted: true });
         setMediaPermission(true);
       }
     })();
+
+    // Accelerometer listener for Horizon Level Indicator
+    let subscription: any = null;
+    if (Platform.OS !== 'web') {
+      Accelerometer.setUpdateInterval(100);
+      subscription = Accelerometer.addListener(data => {
+        const angle = Math.atan2(data.x, Math.sqrt(data.y * data.y + data.z * data.z)) * (180 / Math.PI);
+        setRollAngle(angle);
+        setIsLevel(Math.abs(angle) <= 2.5);
+      });
+    }
 
     // Blinking dot animation
     Animated.loop(
@@ -100,6 +114,10 @@ export default function CameraScreen() {
         })
       ])
     ).start();
+
+    return () => {
+      subscription && subscription.remove();
+    };
   }, []);
 
   const requestCameraPermissionDirectly = async () => {
@@ -117,7 +135,6 @@ export default function CameraScreen() {
   };
 
   if (cameraPermission === null || mediaPermission === null) {
-    // Camera permissions are still loading
     return (
       <View style={styles.centeredContainer}>
         <ActivityIndicator size="large" color={Colors.rosePrimary} />
@@ -126,7 +143,6 @@ export default function CameraScreen() {
   }
 
   if (!cameraPermission.granted) {
-    // Camera permissions are not granted yet
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Text style={styles.errorText}>PickSure needs camera permissions to display the viewfinder.</Text>
@@ -138,67 +154,42 @@ export default function CameraScreen() {
   }
 
   const toggleFacing = () => {
-    setFacing(prev => (prev === 'back' ? 'front' : 'back'));
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
   const toggleFlash = () => {
-    setFlash(prev => (prev === 'off' ? 'on' : 'off'));
+    setFlash(current => (current === 'off' ? 'on' : 'off'));
   };
 
   const toggleTimer = () => {
-    setTimerMode(prev => prev === 0 ? 3 : prev === 3 ? 10 : 0);
+    if (timerMode === 0) setTimerMode(3);
+    else if (timerMode === 3) setTimerMode(10);
+    else setTimerMode(0);
+  };
+
+  const handleZoomPress = (level: number) => {
+    setZoom(level);
   };
 
   const getOverlayOpacity = () => {
-    return opacityValue / 100;
+    return (opacityValue / 100) * 0.85;
   };
 
-  const handleShutterPress = () => {
-    if (timerMode > 0) {
-      let remaining = timerMode;
-      setCountdown(remaining);
-      const interval = setInterval(() => {
-        remaining -= 1;
-        setCountdown(remaining);
-        if (remaining <= 0) {
-          clearInterval(interval);
-          setCountdown(null);
-          executeCapture();
-        }
-      }, 1000);
-    } else {
-      executeCapture();
-    }
-  };
-
-  const executeCapture = async () => {
-    if (Platform.OS === 'web') {
-      setIsCapturing(true);
-      // Simulate capture
-      setTimeout(() => {
-        const mockImg = template?.imageSource || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500';
-        setCapturedPhoto(mockImg);
-        setCapturedPhotosList(prev => [mockImg, ...prev]);
-        setIsCapturing(false);
-      }, 600);
-      return;
-    }
-
+  const executeTakePicture = async () => {
     if (cameraRef.current && !isCapturing) {
       try {
         setIsCapturing(true);
-        const options = { quality: 1.0, skipProcessing: false };
-        const photo = await cameraRef.current.takePictureAsync(options);
-        
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.85,
+          skipProcessing: false,
+        });
+
         if (photo?.uri) {
-          setCapturedPhoto(photo.uri);
+          setCapturedPhoto(photo);
           setCapturedPhotosList(prev => [photo.uri, ...prev]);
           
-          // Save to device library
           if (mediaPermission) {
             await MediaLibrary.saveToLibraryAsync(photo.uri);
-          } else {
-            console.warn("Media Library permissions not granted. Image only stored locally.");
           }
         }
       } catch (error) {
@@ -209,6 +200,27 @@ export default function CameraScreen() {
     }
   };
 
+  const handleCapturePress = () => {
+    if (isCapturing) return;
+
+    if (timerMode > 0) {
+      setCountdown(timerMode);
+      let current = timerMode;
+      const interval = setInterval(() => {
+        current -= 1;
+        if (current > 0) {
+          setCountdown(current);
+        } else {
+          clearInterval(interval);
+          setCountdown(null);
+          executeTakePicture();
+        }
+      }, 1000);
+    } else {
+      executeTakePicture();
+    }
+  };
+
   const renderOverlays = () => {
     return (
       <>
@@ -216,7 +228,11 @@ export default function CameraScreen() {
         {showReferenceImage && template && (
           <Image 
             source={template.imageSource}
-            style={[StyleSheet.absoluteFill, { opacity: getOverlayOpacity() }]}
+            style={[
+              StyleSheet.absoluteFill, 
+              { opacity: getOverlayOpacity() },
+              isOutlineMode && styles.outlineImageStyle
+            ]}
             contentFit="cover"
             pointerEvents="none"
             cachePolicy="memory-disk"
@@ -230,6 +246,24 @@ export default function CameraScreen() {
             <View style={[styles.gridLineHorizontal, { top: '66.6%' }]} />
             <View style={[styles.gridLineVertical, { left: '33.3%' }]} />
             <View style={[styles.gridLineVertical, { left: '66.6%' }]} />
+          </View>
+        )}
+
+        {/* Horizon Level Indicator */}
+        {showLeveler && (
+          <View style={styles.levelerWrapper} pointerEvents="none">
+            <View 
+              style={[
+                styles.levelerLine,
+                { transform: [{ rotate: `${-rollAngle}deg` }] },
+                isLevel && styles.levelerLinePerfect
+              ]}
+            />
+            {isLevel && (
+              <View style={styles.levelBadge}>
+                <Text style={styles.levelBadgeText}>LEVEL ✓</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -254,29 +288,41 @@ export default function CameraScreen() {
           </View>
         )}
 
-        {/* Camera Parameter Widgets (Grid, Flash, Timer) */}
+        {/* Camera Parameter Widgets (Grid, Flash, Timer, Leveler, Outline) */}
         <View style={styles.widgetBar}>
           <TouchableOpacity 
             style={[styles.widgetButton, showGrid && styles.widgetButtonActive]}
             onPress={() => setShowGrid(!showGrid)}
           >
-            <Ionicons name="grid" size={20} color="#FFF" />
+            <Ionicons name="grid" size={18} color="#FFF" />
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.widgetButton, flash === 'on' && styles.widgetButtonActive]}
             onPress={toggleFlash}
           >
-            <Ionicons name={flash === 'on' ? "flash" : "flash-off"} size={20} color="#FFF" />
+            <Ionicons name={flash === 'on' ? "flash" : "flash-off"} size={18} color="#FFF" />
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.widgetButton, timerMode > 0 && styles.widgetButtonActive]}
             onPress={toggleTimer}
           >
             {timerMode === 0 ? (
-               <Ionicons name="time-outline" size={20} color="#FFF" />
+               <Ionicons name="time-outline" size={18} color="#FFF" />
             ) : (
                <Text style={styles.timerWidgetText}>{timerMode}s</Text>
             )}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.widgetButton, showLeveler && styles.widgetButtonActive]}
+            onPress={() => setShowLeveler(!showLeveler)}
+          >
+            <Ionicons name="compass-outline" size={18} color="#FFF" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.widgetButton, isOutlineMode && styles.widgetButtonActive]}
+            onPress={() => setIsOutlineMode(!isOutlineMode)}
+          >
+            <Ionicons name="contrast" size={18} color="#FFF" />
           </TouchableOpacity>
         </View>
       </>
@@ -342,65 +388,91 @@ export default function CameraScreen() {
             style={StyleSheet.absoluteFill} 
             facing={facing}
             flash={flash}
+            zoom={zoom}
           >
             {renderOverlays()}
           </CameraView>
         )}
       </View>
       
-      {/* Control Panel Below Camera Viewport */}
-      <View style={styles.controlsPanel}>
-        {/* Opacity Control Slider Component */}
-        {template && (
+      {/* Controls & Dock Section */}
+      <View style={styles.bottomControls}>
+        {/* Opacity Slider Track */}
+        {template && showReferenceImage && (
           <SliderOpacity 
             opacityValue={opacityValue} 
             onOpacityChange={setOpacityValue} 
           />
         )}
 
-        {/* Shutter Button Row */}
+        {/* Zoom Selector Bar */}
+        <View style={styles.zoomBar}>
+          <TouchableOpacity 
+            style={[styles.zoomPill, zoom === 0 && styles.zoomPillActive]} 
+            onPress={() => handleZoomPress(0)}
+          >
+            <Text style={[styles.zoomPillText, zoom === 0 && styles.zoomPillTextActive]}>1x</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.zoomPill, zoom === 0.08 && styles.zoomPillActive]} 
+            onPress={() => handleZoomPress(0.08)}
+          >
+            <Text style={[styles.zoomPillText, zoom === 0.08 && styles.zoomPillTextActive]}>1.5x</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.zoomPill, zoom === 0.15 && styles.zoomPillActive]} 
+            onPress={() => handleZoomPress(0.15)}
+          >
+            <Text style={[styles.zoomPillText, zoom === 0.15 && styles.zoomPillTextActive]}>2x</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Shutter Controls */}
         <View style={styles.shutterRow}>
-          {/* Flip Camera */}
-          <TouchableOpacity style={styles.flipButton} onPress={toggleFacing}>
-            <Ionicons name="camera-reverse-outline" size={26} color="#FFF" />
+          {/* Gallery Thumbnail */}
+          <TouchableOpacity 
+            style={styles.galleryButton}
+            onPress={() => setIsGalleryVisible(true)}
+          >
+            {capturedPhotosList.length > 0 ? (
+              <Image 
+                source={{ uri: capturedPhotosList[0] }} 
+                style={styles.galleryImage} 
+                contentFit="cover"
+              />
+            ) : (
+              <Ionicons name="images-outline" size={24} color="#FFF" />
+            )}
+            {capturedPhotosList.length > 0 && (
+              <View style={styles.galleryBadge}>
+                <Text style={styles.galleryBadgeText}>{capturedPhotosList.length}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
-          {/* Large Shutter Circle */}
+          {/* Shutter Button */}
           <TouchableOpacity 
-            style={styles.shutterOuter} 
+            style={[styles.shutterOuter, isCapturing && styles.shutterOuterDisabled]} 
             activeOpacity={0.8}
-            onPress={handleShutterPress}
-            disabled={isCapturing || countdown !== null}
+            onPress={handleCapturePress}
+            disabled={isCapturing}
           >
             <View style={styles.shutterInner} />
           </TouchableOpacity>
 
-          {/* Last Photo Thumbnail */}
-          <TouchableOpacity 
-            style={styles.thumbnailContainer}
-            activeOpacity={0.8}
-            onPress={() => setIsGalleryVisible(true)}
-          >
-            {capturedPhoto ? (
-              <Image 
-                source={capturedPhoto} 
-                style={styles.thumbnail}
-                contentFit="cover"
-              />
-            ) : (
-              <View style={[styles.thumbnailPlaceholder, { justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name="images-outline" size={20} color="#7a7a7a" />
-              </View>
-            )}
+          {/* Flip Camera */}
+          <TouchableOpacity style={styles.circleControl} onPress={toggleFacing}>
+            <Ionicons name="camera-reverse-outline" size={26} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Session Gallery Modal Component */}
+      {/* Session Gallery Modal */}
       <SessionGalleryModal 
-        visible={isGalleryVisible} 
-        photos={capturedPhotosList} 
-        onClose={() => setIsGalleryVisible(false)} 
+        visible={isGalleryVisible}
+        photos={capturedPhotosList}
+        onClose={() => setIsGalleryVisible(false)}
+        onClear={() => setCapturedPhotosList([])}
       />
     </SafeAreaView>
   );
@@ -410,7 +482,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'space-between',
   },
   centeredContainer: {
     flex: 1,
@@ -418,28 +489,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  webCameraMockBanner: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#262626',
-    zIndex: 10,
-  },
-  webCameraMockText: {
-    color: Colors.rosePrimary,
-    fontSize: 11,
-    fontWeight: '800',
-  },
   errorContainer: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -448,55 +500,76 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     lineHeight: 22,
   },
   permissionButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 28,
     backgroundColor: Colors.rosePrimary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
   },
   permissionButtonText: {
-    color: '#FFF',
+    color: Colors.darkText,
     fontWeight: '800',
-    fontSize: 15,
+    fontSize: 14,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    backgroundColor: '#000',
   },
   headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#161616',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTextContainer: {
     alignItems: 'center',
   },
   categoryName: {
-    fontSize: 11,
     color: Colors.rosePrimary,
+    fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 1.5,
+    letterSpacing: 1,
   },
   templateTitle: {
+    color: '#FFF',
     fontSize: 14,
-    color: '#a3a3a3',
-    fontWeight: '600',
+    fontWeight: '800',
     marginTop: 2,
   },
   cameraContainer: {
-    width: '100%',
-    backgroundColor: '#121212',
-    overflow: 'hidden',
+    width: width,
     position: 'relative',
+    backgroundColor: '#111',
+    overflow: 'hidden',
+  },
+  webCameraMockBanner: {
+    position: 'absolute',
+    top: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    zIndex: 10,
+  },
+  webCameraMockText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  outlineImageStyle: {
+    tintColor: Colors.rosePrimary,
   },
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -505,90 +578,130 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 0.5,
+    height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   gridLineVertical: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 0.5,
+    width: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
-  poseOverlay: {
+  levelerWrapper: {
     ...StyleSheet.absoluteFillObject,
-    // Add margin to make sure overlay fits inside standard safe areas
-    margin: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  levelerLine: {
+    width: '60%',
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 1,
+  },
+  levelerLinePerfect: {
+    backgroundColor: '#4EED97',
+    height: 3,
+    shadowColor: '#4EED97',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  levelBadge: {
+    position: 'absolute',
+    top: '38%',
+    backgroundColor: '#4EED97',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  levelBadgeText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   cornerMarker: {
     position: 'absolute',
     width: 24,
     height: 24,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   topLeftCorner: {
-    top: 16,
-    left: 16,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
+    top: 20,
+    left: 20,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
   },
   topRightCorner: {
-    top: 16,
-    right: 16,
-    borderTopWidth: 1.5,
-    borderRightWidth: 1.5,
+    top: 20,
+    right: 20,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
   },
   bottomLeftCorner: {
-    bottom: 16,
-    left: 16,
-    borderBottomWidth: 1.5,
-    borderLeftWidth: 1.5,
+    bottom: 20,
+    left: 20,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
   },
   bottomRightCorner: {
-    bottom: 16,
-    right: 16,
-    borderBottomWidth: 1.5,
-    borderRightWidth: 1.5,
+    bottom: 20,
+    right: 20,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
   },
   alignIndicator: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
+    top: 20,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.rosePrimary,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.rosePrimary,
-    marginRight: 6,
   },
   alignText: {
     color: '#FFF',
     fontSize: 12,
     fontWeight: '700',
   },
+  countdownOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  countdownText: {
+    fontSize: 96,
+    fontWeight: '900',
+    color: Colors.rosePrimary,
+  },
   widgetBar: {
     position: 'absolute',
-    top: 20,
-    right: 20,
-    gap: 12,
+    bottom: 16,
+    left: 16,
+    flexDirection: 'row',
+    gap: 8,
   },
   widgetButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 0.5,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   widgetButtonActive: {
@@ -597,38 +710,67 @@ const styles = StyleSheet.create({
   },
   timerWidgetText: {
     color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 10,
+    fontWeight: '900',
   },
-  controlsPanel: {
+  bottomControls: {
+    flex: 1,
     backgroundColor: '#000',
-    paddingVertical: 18,
-    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  zoomBar: {
+    flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 4,
+  },
+  zoomPill: {
+    width: 36,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomPillActive: {
+    backgroundColor: Colors.rosePrimary,
+  },
+  zoomPillText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  zoomPillTextActive: {
+    color: Colors.darkText,
   },
   shutterRow: {
-    width: '100%',
     flexDirection: 'row',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 36,
   },
-  flipButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#161616',
+  circleControl: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   shutterOuter: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 5,
-    borderColor: '#FFF',
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 4,
+    borderColor: Colors.rosePrimary,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 3,
+  },
+  shutterOuterDisabled: {
+    opacity: 0.5,
   },
   shutterInner: {
     width: 64,
@@ -636,36 +778,37 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: '#FFF',
   },
-  thumbnailContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: '#161616',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#262626',
-  },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  thumbnailPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#161616',
-  },
-  countdownOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  galleryButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 100,
+    overflow: 'visible',
   },
-  countdownText: {
-    fontSize: 120,
+  galleryImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.rosePrimary,
+  },
+  galleryBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.rosePrimary,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  galleryBadgeText: {
+    color: Colors.darkText,
+    fontSize: 10,
     fontWeight: '900',
-    color: '#FFF',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 10,
   },
 });

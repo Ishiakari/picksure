@@ -18,9 +18,10 @@ interface SessionGalleryModalProps {
   visible: boolean;
   photos: string[];
   onClose: () => void;
+  onClear?: () => void;
 }
 
-export default function SessionGalleryModal({ visible, photos, onClose }: SessionGalleryModalProps) {
+export default function SessionGalleryModal({ visible, photos, onClose, onClear }: SessionGalleryModalProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   if (!visible) return null;
@@ -39,7 +40,16 @@ export default function SessionGalleryModal({ visible, photos, onClose }: Sessio
               <Ionicons name="arrow-back" size={24} color={Colors.creamLight} />
             </TouchableOpacity>
             <Text style={styles.galleryTitle}>Session Gallery</Text>
-            <View style={{ width: 44 }} />
+            {onClear && photos.length > 0 ? (
+              <TouchableOpacity 
+                style={styles.clearButton} 
+                onPress={onClear}
+              >
+                <Ionicons name="trash-outline" size={20} color={Colors.rosePrimary} />
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 44 }} />
+            )}
           </View>
 
           {/* Photos List */}
@@ -108,6 +118,16 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.darkCard,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  clearButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
