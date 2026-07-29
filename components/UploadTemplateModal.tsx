@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/theme';
@@ -193,7 +194,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       }
 
       // Create a local Template object for instant feed display
-      const newTemplateObj: Template = {
+      const newTemplateObj: Template & { creator_id?: string } = {
         id: insertedRow?.id || `custom-${Date.now()}`,
         title,
         category,
@@ -204,7 +205,16 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         usedCount: '0',
         savedCount: '0',
         tips: tipsList,
+        creator_id: user?.id,
       };
+
+      // Save upload ID locally scoped to active user
+      try {
+        const userKey = user?.id || 'guest';
+        await AsyncStorage.setItem(`my_upload_${userKey}_${newTemplateObj.id}`, 'true');
+      } catch (err) {
+        console.warn("AsyncStorage upload caching warning:", err);
+      }
 
       if (storageError) {
         console.warn("Storage upload warning:", storageError.message);

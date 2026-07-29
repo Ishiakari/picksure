@@ -41,14 +41,24 @@ export default function TemplateDetailScreen() {
       setSavedCount(initialSaved);
       setUsedCount(initialUsed);
 
-      // Check if user previously saved this template locally
-      AsyncStorage.getItem(`saved_template_${template.id}`).then((val) => {
+      const userKey = user?.id || 'guest';
+      // Check if user previously saved this template locally or in Supabase
+      AsyncStorage.getItem(`saved_template_${userKey}_${template.id}`).then(async (val) => {
         if (val === 'true') {
           setIsBookmarked(true);
+        } else if (user?.id) {
+          const { data } = await supabase.from('saved_templates')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('template_id', template.id);
+          if (data && data.length > 0) {
+            setIsBookmarked(true);
+            await AsyncStorage.setItem(`saved_template_${userKey}_${template.id}`, 'true');
+          }
         }
       });
     }
-  }, [template?.id]);
+  }, [template?.id, user?.id]);
 
   if (!template) {
     return (
@@ -62,17 +72,20 @@ export default function TemplateDetailScreen() {
   }
 
   const handleToggleBookmark = async () => {
+    if (!template) return;
+
+    const userKey = user?.id || 'guest';
     const nextState = !isBookmarked;
     setIsBookmarked(nextState);
     const newCount = nextState ? savedCount + 1 : Math.max(0, savedCount - 1);
     setSavedCount(newCount);
 
     try {
-      // Persist local favorite status
+      // Persist local favorite status scoped to user
       if (nextState) {
-        await AsyncStorage.setItem(`saved_template_${template.id}`, 'true');
+        await AsyncStorage.setItem(`saved_template_${userKey}_${template.id}`, 'true');
       } else {
-        await AsyncStorage.removeItem(`saved_template_${template.id}`);
+        await AsyncStorage.removeItem(`saved_template_${userKey}_${template.id}`);
       }
 
       // Sync with Supabase saved_templates table if user is logged in

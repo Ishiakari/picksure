@@ -181,8 +181,19 @@ export default function HomeScreen() {
                 <Ionicons name="search-outline" size={22} color={Colors.creamLight} />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.iconButton} onPress={() => setIsAuthModalVisible(true)}>
-                <Ionicons name="person-outline" size={22} color={Colors.creamLight} />
+              <TouchableOpacity 
+                style={styles.iconButton} 
+                onPress={() => router.push('/(tabs)/profile')}
+              >
+                {user?.user_metadata?.avatar_url ? (
+                  <Image 
+                    source={{ uri: user.user_metadata.avatar_url }} 
+                    style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.rosePrimary }} 
+                    contentFit="cover" 
+                  />
+                ) : (
+                  <Ionicons name="person-outline" size={22} color={user ? Colors.rosePrimary : Colors.creamLight} />
+                )}
               </TouchableOpacity>
             </View>
           </>

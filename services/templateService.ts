@@ -61,7 +61,8 @@ export const templateService = {
           time: item.time || '2 min',
           tips: tipsArray,
           usedCount: item.used_count !== undefined && item.used_count !== null ? String(item.used_count) : '0',
-          savedCount: item.saved_count !== undefined && item.saved_count !== null ? String(item.saved_count) : '0'
+          savedCount: item.saved_count !== undefined && item.saved_count !== null ? String(item.saved_count) : '0',
+          creator_id: item.creator_id,
         };
       });
 
