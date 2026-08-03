@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Template } from '@/src/data/templates';
 import { useTemplates } from '@/hooks/useTemplates';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/constants/theme';
 import PickSureLogo from '@/components/PickSureLogo';
 import AuthModal from '@/components/AuthModal';
@@ -49,6 +50,7 @@ export default function HomeScreen() {
     hasMore 
   } = useTemplates();
   const { user } = useAuth();
+  const { isDark, toggleTheme, themeColors } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -58,27 +60,11 @@ export default function HomeScreen() {
   // Filter templates based on category selection
   const filteredTemplates = templates.filter(template => {
     const templateCategory = template.category || '';
-    const templateTitle = template.title || '';
-
-    const matchesCategory = selectedCategory === 'All' || 
-      templateCategory.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
-      
-    const matchesSearch = templateTitle.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          templateCategory.toLowerCase().includes(searchQuery.toLowerCase());
-                          
+    const matchesCategory = selectedCategory === 'All' || templateCategory.toLowerCase() === selectedCategory.toLowerCase();
+    const matchesSearch = searchQuery.trim() === '' || 
+      template.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      templateCategory.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
-  });
-
-  // Distribute templates into two columns to simulate masonry layout
-  const leftColTemplates: Template[] = [];
-  const rightColTemplates: Template[] = [];
-  
-  filteredTemplates.forEach((item, index) => {
-    if (index % 2 === 0) {
-      leftColTemplates.push(item);
-    } else {
-      rightColTemplates.push(item);
-    }
   });
 
   const handleTemplatePress = (id: string) => {
@@ -87,6 +73,14 @@ export default function HomeScreen() {
       params: { id }
     });
   };
+
+  const leftColTemplates: Template[] = [];
+  const rightColTemplates: Template[] = [];
+
+  filteredTemplates.forEach((item, idx) => {
+    if (idx % 2 === 0) leftColTemplates.push(item);
+    else rightColTemplates.push(item);
+  });
 
   const handleFloatingCameraPress = () => {
     router.push({
@@ -104,17 +98,14 @@ export default function HomeScreen() {
 
   const renderCard = (item: Template) => {
     let cardHeight = 220;
-    if (item.id === 'cafe-01') cardHeight = 240;
-    if (item.id === 'ootd-01') cardHeight = 220;
-    if (item.id === 'street-01') cardHeight = 260;
-    if (item.id === 'golden-01') cardHeight = 240;
-    if (item.id === 'minimal-01') cardHeight = 180;
-    if (item.id === 'editorial-01') cardHeight = 260;
+    if (item.id === 'cafe-01') cardHeight = 230;
+    if (item.id === 'garden-study-01') cardHeight = 190;
+    if (item.id === 'meadow-walk-01') cardHeight = 250;
 
     return (
       <TouchableOpacity 
         key={item.id} 
-        style={[styles.card, { height: cardHeight }]}
+        style={[styles.card, { height: cardHeight, backgroundColor: themeColors.card, borderColor: themeColors.border }]}
         activeOpacity={0.9}
         onPress={() => handleTemplatePress(item.id)}
       >
@@ -142,17 +133,17 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.darkBackground} />
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={themeColors.background} />
       
       {/* Header Section */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.background }]}>
         {isSearchActive ? (
-          <View style={styles.searchContainer}>
+          <View style={[styles.searchContainer, { backgroundColor: themeColors.card }]}>
             <TextInput 
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: themeColors.text }]}
               placeholder="Search templates..."
-              placeholderTextColor="#99818c"
+              placeholderTextColor={themeColors.subtext}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -164,7 +155,7 @@ export default function HomeScreen() {
                 setSearchQuery('');
               }}
             >
-              <Ionicons name="close" size={20} color={Colors.creamLight} />
+              <Ionicons name="close" size={20} color={themeColors.text} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -172,17 +163,21 @@ export default function HomeScreen() {
             <View style={styles.brandContainer}>
               <PickSureLogo size={42} showText={false} color={Colors.rosePrimary} />
               <View style={styles.brandTitleContainer}>
-                <Text style={styles.headerTitle}>PICKSURE</Text>
-                <Text style={styles.headerSubtitle}>Pick your vibe. Be sure of your shot.</Text>
+                <Text style={[styles.headerTitle, { color: themeColors.text }]}>PICKSURE</Text>
+                <Text style={[styles.headerSubtitle, { color: themeColors.subtext }]}>Pick your vibe. Be sure of your shot.</Text>
               </View>
             </View>
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.iconButton} onPress={() => setIsSearchActive(true)}>
-                <Ionicons name="search-outline" size={22} color={Colors.creamLight} />
+              <TouchableOpacity style={[styles.iconButton, { backgroundColor: themeColors.card, borderColor: themeColors.border }]} onPress={toggleTheme}>
+                <Ionicons name={isDark ? "sunny" : "moon"} size={20} color={Colors.rosePrimary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.iconButton, { backgroundColor: themeColors.card, borderColor: themeColors.border }]} onPress={() => setIsSearchActive(true)}>
+                <Ionicons name="search-outline" size={20} color={themeColors.text} />
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={styles.iconButton} 
+                style={[styles.iconButton, { backgroundColor: themeColors.card, borderColor: themeColors.border }]} 
                 onPress={() => router.push('/(tabs)/profile')}
               >
                 {user?.user_metadata?.avatar_url ? (
@@ -192,7 +187,7 @@ export default function HomeScreen() {
                     contentFit="cover" 
                   />
                 ) : (
-                  <Ionicons name="person-outline" size={22} color={user ? Colors.rosePrimary : Colors.creamLight} />
+                  <Ionicons name="person-outline" size={20} color={user ? Colors.rosePrimary : themeColors.text} />
                 )}
               </TouchableOpacity>
             </View>
@@ -212,10 +207,18 @@ export default function HomeScreen() {
             return (
               <TouchableOpacity
                 key={cat}
-                style={[styles.categoryPill, isSelected && styles.categoryPillActive]}
+                style={[
+                  styles.categoryPill, 
+                  { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                  isSelected && styles.categoryPillActive
+                ]}
                 onPress={() => setSelectedCategory(cat)}
               >
-                <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>
+                <Text style={[
+                  styles.categoryText, 
+                  { color: themeColors.subtext },
+                  isSelected && styles.categoryTextActive
+                ]}>
                   {cat}
                 </Text>
               </TouchableOpacity>

@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useTemplates } from '@/hooks/useTemplates';
 import { Template } from '@/src/data/templates';
 import { Colors } from '@/constants/theme';
@@ -28,6 +29,7 @@ const COLUMN_WIDTH = (width - 48) / 2;
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { isDark, setThemeMode } = useTheme();
   const { templates, refresh, refreshing } = useTemplates();
 
   const [activeTab, setActiveTab] = useState<'saved' | 'uploads'>('saved');
@@ -220,6 +222,31 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Appearance & Theme Toggle Card */}
+        <View style={styles.themeCard}>
+          <View style={styles.themeInfo}>
+            <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={22} color={Colors.rosePrimary} />
+            <Text style={styles.themeTitle}>App Theme</Text>
+          </View>
+          <View style={styles.themeToggleContainer}>
+            <TouchableOpacity 
+              style={[styles.themePill, isDark && styles.themePillActive]}
+              onPress={() => setThemeMode('dark')}
+            >
+              <Ionicons name="moon" size={14} color={isDark ? Colors.darkText : Colors.roseSoft} />
+              <Text style={[styles.themePillText, isDark && styles.themePillTextActive]}>Dark</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.themePill, !isDark && styles.themePillActive]}
+              onPress={() => setThemeMode('light')}
+            >
+              <Ionicons name="sunny" size={14} color={!isDark ? Colors.darkText : Colors.roseSoft} />
+              <Text style={[styles.themePillText, !isDark && styles.themePillTextActive]}>Light</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Collection Tab Selector */}
         <View style={styles.segmentedContainer}>
@@ -472,6 +499,55 @@ const styles = StyleSheet.create({
   primaryAuthButtonText: {
     color: Colors.darkText,
     fontSize: 14,
+    fontWeight: '900',
+  },
+  themeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.darkCard,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  themeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  themeTitle: {
+    color: Colors.creamLight,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  themeToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 16,
+    padding: 3,
+    gap: 4,
+  },
+  themePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+  },
+  themePillActive: {
+    backgroundColor: Colors.rosePrimary,
+  },
+  themePillText: {
+    color: Colors.roseSoft,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  themePillTextActive: {
+    color: Colors.darkText,
     fontWeight: '900',
   },
   segmentedContainer: {
