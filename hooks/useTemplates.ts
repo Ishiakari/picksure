@@ -21,6 +21,20 @@ export function addCustomTemplateToFeed(newTemplate: Template) {
   }
 }
 
+export function updateTemplateStatsInFeed(id: string, savedCount: number, usedCount: number) {
+  cachedTemplates = cachedTemplates.map(t => {
+    if (t.id === id) {
+      return {
+        ...t,
+        savedCount: String(savedCount),
+        usedCount: String(usedCount),
+      };
+    }
+    return t;
+  });
+  notifyListeners();
+}
+
 /**
  * Custom React Hook for accessing template dataset with infinite pagination and image prefetching.
  */
