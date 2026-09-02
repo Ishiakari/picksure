@@ -109,9 +109,10 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       .map(t => t.trim())
       .filter(t => t.length > 0);
 
+    const trimmedDescription = description.trim();
     const tipsList = parsedTips.length > 0 
       ? parsedTips 
-      : (description ? [description] : ['Align pose overlay with subject.']);
+      : (trimmedDescription.length > 0 ? [trimmedDescription] : ['Align pose overlay with subject.']);
 
     try {
       setUploading(true);

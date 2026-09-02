@@ -189,6 +189,7 @@ export default function TemplateDetailScreen() {
       await AsyncStorage.setItem(`used_count_val_${template.id}`, String(nextUsed));
 
       // Atomic increment at database level via RPC function
+      let finalUsed = nextUsed;
       const { data: rpcCount, error: rpcErr } = await supabase.rpc('increment_template_usage', {
         target_template_id: template.id
       });
@@ -196,11 +197,12 @@ export default function TemplateDetailScreen() {
       if (rpcErr) {
         console.warn("increment_template_usage RPC warning:", rpcErr.message);
       } else if (rpcCount !== null && rpcCount !== undefined) {
-        setUsedCount(Number(rpcCount));
+        finalUsed = Number(rpcCount);
+        setUsedCount(finalUsed);
       }
 
-      // Synchronize changes with active feed cache
-      updateTemplateStatsInFeed(template.id, savedCount, nextUsed);
+      // Synchronize changes with active feed cache using confirmed count
+      updateTemplateStatsInFeed(template.id, savedCount, finalUsed);
     } catch (err) {
       console.warn("Used count update error:", err);
     }
