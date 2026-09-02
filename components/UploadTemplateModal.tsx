@@ -120,10 +120,11 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       const blob = await getBlobFromUri(selectedImageUri);
       const arrayBuffer = await new Response(blob).arrayBuffer();
 
-      // 2. Upload file to Supabase Storage
+      // 2. Upload file to Supabase Storage under user-scoped folder
       const fileExt = selectedImageUri.split('.').pop() || 'jpg';
-      const fileName = `${user?.id || 'anonymous'}_${Date.now()}.${fileExt}`;
-      const filePath = `templates/${fileName}`;
+      const userId = user?.id || 'anonymous';
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `templates/${userId}/${fileName}`;
 
       const { data: storageData, error: storageError } = await supabase.storage
         .from('template-overlays')
@@ -141,54 +142,30 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         ? supabase.storage.from('template-overlays').getPublicUrl(storageData.path).data.publicUrl
         : selectedImageUri;
 
-      // 4. Ensure profile row exists in public.profiles table to prevent foreign key violation
-      if (user?.id) {
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: user.id,
-          full_name: user.user_metadata?.full_name || 'PickSure Creator',
-          avatar_url: user.user_metadata?.avatar_url || null,
-          updated_at: new Date().toISOString(),
-        });
-        if (profileError) {
-          console.warn("Profile upsert warning:", profileError.message);
-        }
-      }
+      // 4. Insert row into Supabase 'templates' database table with native JSONB/Array tips
+      const insertPayload = {
+        title,
+        category,
+        description: description.trim(),
+        tips: tipsList,
+        image_url: publicUrl,
+        creator_id: user?.id || null,
+        difficulty,
+        time_setup: '2 min',
+      };
 
-      // Combine description and Director's Guide tips for full database schema compatibility
-      const fullDescription = guideInstructions.trim() 
-        ? `${description ? description.trim() + '\n\n' : ''}DIRECTOR'S GUIDE:\n${tipsList.map(t => '• ' + t).join('\n')}` 
-        : description;
-
-      // 5. Insert row into Supabase 'templates' database table
-      let insertResult = await supabase.from('templates').insert([
-        {
-          title,
-          category,
-          description: fullDescription,
-          image_url: publicUrl,
-          creator_id: user?.id,
-          difficulty,
-          time: '2 min',
-        }
-      ]).select();
+      let insertResult = await supabase.from('templates').insert([insertPayload]).select();
 
       let dbError = insertResult.error;
       let insertedRow = insertResult.data?.[0];
 
-      // Fallback: If profile doesn't exist and violates foreign key constraint, insert with creator_id = null
+      // Fallback: If foreign key fails for guest/unmatched creator_id, retry with creator_id = null
       if (dbError && (dbError.message.includes("violates foreign key constraint") || dbError.code === '23503')) {
         console.warn("Foreign key constraint failed, retrying with creator_id = null fallback");
-        const fallbackResult = await supabase.from('templates').insert([
-          {
-            title,
-            category,
-            description: fullDescription,
-            image_url: publicUrl,
-            creator_id: null,
-            difficulty,
-            time: '2 min',
-          }
-        ]).select();
+        const fallbackResult = await supabase.from('templates').insert([{
+          ...insertPayload,
+          creator_id: null,
+        }]).select();
         dbError = fallbackResult.error;
         insertedRow = fallbackResult.data?.[0];
       }
@@ -198,7 +175,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         id: insertedRow?.id || `custom-${Date.now()}`,
         title,
         category,
-        description,
+        description: description.trim(),
         imageSource: { uri: publicUrl },
         difficulty,
         time: '2 min',
