@@ -28,10 +28,23 @@ export const templateService = {
       
       const remoteTemplates: Template[] = data.map(item => {
         let tipsArray: string[] = [];
+
+        // Prefer native tips array (JSONB or Postgres TEXT[])
+        if (Array.isArray(item.tips) && item.tips.length > 0) {
+          tipsArray = item.tips;
+        } else if (typeof item.tips === 'string' && item.tips.trim().startsWith('[')) {
+          try {
+            const parsed = JSON.parse(item.tips);
+            if (Array.isArray(parsed)) tipsArray = parsed;
+          } catch {
+            tipsArray = [];
+          }
+        }
+
         let cleanDesc = item.description || '';
 
-        // If description contains DIRECTOR'S GUIDE, parse tips out of it
-        if (cleanDesc.includes("DIRECTOR'S GUIDE:")) {
+        // Fallback backward-compatibility check for legacy text blobs
+        if (tipsArray.length === 0 && cleanDesc.includes("DIRECTOR'S GUIDE:")) {
           const parts = cleanDesc.split("DIRECTOR'S GUIDE:");
           cleanDesc = parts[0].trim();
           tipsArray = parts[1]
@@ -40,15 +53,9 @@ export const templateService = {
             .filter((t: string) => t.length > 0);
         }
 
-        // Fallbacks
+        // Final fallback if no tips found
         if (tipsArray.length === 0) {
-          if (Array.isArray(item.tips) && item.tips.length > 0) {
-            tipsArray = item.tips;
-          } else if (cleanDesc.length > 0) {
-            tipsArray = [cleanDesc];
-          } else {
-            tipsArray = ['Align pose overlay with subject.'];
-          }
+          tipsArray = cleanDesc.length > 0 ? [cleanDesc] : ['Align pose overlay with subject.'];
         }
 
         return {
@@ -58,7 +65,7 @@ export const templateService = {
           description: cleanDesc,
           imageSource: { uri: item.image_url },
           difficulty: (item.difficulty as 'Beginner' | 'Intermediate' | 'Advanced') || 'Beginner',
-          time: item.time || '2 min',
+          time: item.time || item.time_setup || '2 min',
           tips: tipsArray,
           usedCount: item.used_count !== undefined && item.used_count !== null ? String(item.used_count) : '0',
           savedCount: item.saved_count !== undefined && item.saved_count !== null ? String(item.saved_count) : '0',

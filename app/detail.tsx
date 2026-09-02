@@ -148,22 +148,21 @@ export default function TemplateDetailScreen() {
     setSavedCount(newCount);
 
     try {
-      // Persist local numeric count
+      // Persist local numeric count and state
       await AsyncStorage.setItem(`saved_count_val_${template.id}`, String(newCount));
 
-      // Persist user favorite status
       if (nextState) {
         await AsyncStorage.setItem(`saved_template_${userKey}_${template.id}`, 'true');
       } else {
         await AsyncStorage.removeItem(`saved_template_${userKey}_${template.id}`);
       }
 
-      // Sync with Supabase saved_templates table
+      // Sync with Supabase saved_templates table (DB triggers handle atomic saved_count sync on templates)
       if (user?.id) {
         if (nextState) {
           const { error: sErr } = await supabase.from('saved_templates').upsert([
             { user_id: user.id, template_id: template.id }
-          ]);
+          ], { onConflict: 'user_id,template_id' });
           if (sErr) console.warn("saved_templates upsert warning:", sErr.message);
         } else {
           const { error: sErr } = await supabase.from('saved_templates')
@@ -174,19 +173,7 @@ export default function TemplateDetailScreen() {
         }
       }
 
-      // Upsert template row in Supabase templates table
-      await supabase.from('templates').upsert([
-        {
-          id: template.id,
-          title: template.title,
-          category: template.category,
-          description: template.description,
-          saved_count: newCount,
-          used_count: usedCount,
-        }
-      ], { onConflict: 'id' });
-
-      // Synchronize changes with active feed cache
+      // Synchronize changes with active in-memory feed cache
       updateTemplateStatsInFeed(template.id, newCount, usedCount);
     } catch (err) {
       console.warn("Bookmark sync error:", err);
@@ -201,17 +188,16 @@ export default function TemplateDetailScreen() {
       // Persist local numeric count
       await AsyncStorage.setItem(`used_count_val_${template.id}`, String(nextUsed));
 
-      // Upsert template row in Supabase templates table
-      await supabase.from('templates').upsert([
-        {
-          id: template.id,
-          title: template.title,
-          category: template.category,
-          description: template.description,
-          saved_count: savedCount,
-          used_count: nextUsed,
-        }
-      ], { onConflict: 'id' });
+      // Atomic increment at database level via RPC function
+      const { data: rpcCount, error: rpcErr } = await supabase.rpc('increment_template_usage', {
+        target_template_id: template.id
+      });
+
+      if (rpcErr) {
+        console.warn("increment_template_usage RPC warning:", rpcErr.message);
+      } else if (rpcCount !== null && rpcCount !== undefined) {
+        setUsedCount(Number(rpcCount));
+      }
 
       // Synchronize changes with active feed cache
       updateTemplateStatsInFeed(template.id, savedCount, nextUsed);

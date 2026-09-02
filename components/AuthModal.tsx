@@ -109,13 +109,14 @@ export default function AuthModal({ visible, onClose, onOpenUploadModal }: AuthM
         const imageUri = result.assets[0].uri;
         setUpdatingAvatar(true);
 
-        const filename = `avatars/${user?.id}_${Date.now()}.jpg`;
+        const filename = `${Date.now()}.jpg`;
+        const filePath = `avatars/${user?.id}/${filename}`;
         const blob = await getBlobFromUri(imageUri);
         const arrayBuffer = await new Response(blob).arrayBuffer();
 
         const { data: storageData, error: storageError } = await supabase.storage
           .from('template-overlays')
-          .upload(filename, arrayBuffer, {
+          .upload(filePath, arrayBuffer, {
             contentType: 'image/jpeg',
             upsert: true,
           });
