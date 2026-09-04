@@ -8,7 +8,7 @@ PickSure is a premium mobile photography assistant designed to eliminate posing 
 
 ## Features
 
-- **Masonry Template Feed & Search**: Discover photography templates sorted by curated categories (Portrait, OOTD, Street, Minimal, etc.) with real-time search.
+- **Masonry Template Feed & Search**: Discover photography templates sorted by curated categories (Cafe & Lifestyle, OOTD & Streetwear, Cottagecore & Nature, Editorial & Noir, Minimalist & Silhouette, Casual & Mirror Check, Couples & Friends) with real-time search.
 - **Director's Details Page**: Displays setup difficulty, statistics, direct photography tips, and an SVG-based preview wireframe.
 - **Dual-Mode Camera Viewfinder**:
   - **Template Guided Mode**: Overlays the reference photo on the viewfinder with customizable opacity controls (**Faint** - 25%, **Medium** - 55%, **Solid** - 85%), blinking pose alignment status badges, and flash/grid widgets.

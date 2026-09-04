@@ -1,5 +1,6 @@
 // services/templateService.ts
 import { TEMPLATES, Template } from '@/src/data/templates';
+import { CategoryType } from '@/src/constants/categories';
 import { supabase } from '@/lib/supabase';
 
 export interface PaginatedTemplatesResult {
@@ -61,7 +62,7 @@ export const templateService = {
         return {
           id: item.id,
           title: item.title || 'Untitled Pose',
-          category: item.category || 'Cafe & Lifestyle',
+          category: (item.category as CategoryType) || 'Cafe & Lifestyle',
           description: cleanDesc,
           imageSource: { uri: item.image_url },
           difficulty: (item.difficulty as 'Beginner' | 'Intermediate' | 'Advanced') || 'Beginner',

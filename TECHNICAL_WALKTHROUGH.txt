@@ -1,4 +1,4 @@
-# PICKSURE — TECHNICAL WALKTHROUGH & ARCHITECTURAL ANALYSIS
+ï»¿# PICKSURE ï¿½ TECHNICAL WALKTHROUGH & ARCHITECTURAL ANALYSIS
 
 ================================================================================
 1. HIGH-LEVEL OVERVIEW
@@ -54,7 +54,7 @@ B. Screens
    - External Modules: `expo-router`, `expo-image`, `react-native`.
 
 5. app/(tabs)/explore.tsx (Categories & Discovery)
-   - Responsibility: Filtered category browser with visual banner cards (Portrait, Cafe, Travel, Landscape, Street) allowing instant exploration of themed reference poses.
+   - Responsibility: Filtered category browser with visual banner cards (Cafe & Lifestyle, OOTD & Streetwear, Cottagecore & Nature, Editorial & Noir, Minimalist & Silhouette, Casual & Mirror Check, Couples & Friends) allowing instant exploration of themed reference poses.
    - Key Hooks & State: `useTemplates()`, `useTheme()`, `activeCategory`.
    - External Modules: `expo-router`, `expo-image`.
 
