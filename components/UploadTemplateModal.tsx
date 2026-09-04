@@ -160,6 +160,28 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 
   if (!visible) return null;
 
+  const detectBestRatio = (w: number, h: number): '3:4 RATIO' | '4:5 RATIO' | '1:1 RATIO' | '9:16 RATIO' => {
+    const r = w / h;
+    const candidates: Array<{ ratio: '3:4 RATIO' | '4:5 RATIO' | '1:1 RATIO' | '9:16 RATIO'; value: number }> = [
+      { ratio: '1:1 RATIO', value: 1.0 },
+      { ratio: '4:5 RATIO', value: 0.8 }, // 4/5
+      { ratio: '3:4 RATIO', value: 0.75 }, // 3/4
+      { ratio: '9:16 RATIO', value: 9 / 16 }, // 0.5625
+    ];
+
+    let best = candidates[0];
+    let minDiff = Math.abs(r - candidates[0].value);
+
+    for (let i = 1; i < candidates.length; i++) {
+      const diff = Math.abs(r - candidates[i].value);
+      if (diff < minDiff) {
+        minDiff = diff;
+        best = candidates[i];
+      }
+    }
+    return best.ratio;
+  };
+
   const pickImageFromGallery = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -170,7 +192,6 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [3, 4],
       quality: 0.85,
     });
 
@@ -178,18 +199,9 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       const asset = result.assets[0];
       setSelectedImageUri(asset.uri);
       
-      // Auto-detect native aspect ratio
+      // Auto-detect native aspect ratio by evaluating closest distance
       if (asset.width && asset.height) {
-        const r = asset.width / asset.height;
-        if (Math.abs(r - 1) < 0.12) {
-          setAspectRatio('1:1 RATIO');
-        } else if (Math.abs(r - (3 / 4)) < 0.12) {
-          setAspectRatio('3:4 RATIO');
-        } else if (Math.abs(r - (4 / 5)) < 0.12) {
-          setAspectRatio('4:5 RATIO');
-        } else if (Math.abs(r - (9 / 16)) < 0.15) {
-          setAspectRatio('9:16 RATIO');
-        }
+        setAspectRatio(detectBestRatio(asset.width, asset.height));
       }
       setCurrentStep(2);
     }
@@ -212,16 +224,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       setSelectedImageUri(asset.uri);
 
       if (asset.width && asset.height) {
-        const r = asset.width / asset.height;
-        if (Math.abs(r - 1) < 0.12) {
-          setAspectRatio('1:1 RATIO');
-        } else if (Math.abs(r - (3 / 4)) < 0.12) {
-          setAspectRatio('3:4 RATIO');
-        } else if (Math.abs(r - (4 / 5)) < 0.12) {
-          setAspectRatio('4:5 RATIO');
-        } else if (Math.abs(r - (9 / 16)) < 0.15) {
-          setAspectRatio('9:16 RATIO');
-        }
+        setAspectRatio(detectBestRatio(asset.width, asset.height));
       }
       setCurrentStep(2);
     }
