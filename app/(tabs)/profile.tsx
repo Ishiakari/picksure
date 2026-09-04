@@ -226,7 +226,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.8}
               >
                 <Feather name="plus" size={14} color={Colors.background} />
-                <Text style={styles.profileCreateText}>+ Create Guide</Text>
+                <Text style={styles.profileCreateText}>Create Guide</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -236,17 +236,6 @@ export default function ProfileScreen() {
               >
                 <Feather name="share-2" size={13} color={Colors.textPrimary} />
                 <Text style={styles.profileActionText}>Share Studio</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.profileActionBtn}
-                onPress={handleSignOut}
-                activeOpacity={0.8}
-              >
-                <Feather name="log-out" size={13} color={Colors.primaryDark} />
-                <Text style={[styles.profileActionText, { color: Colors.primaryDark }]}>
-                  Sign Out
-                </Text>
               </TouchableOpacity>
             </View>
 
