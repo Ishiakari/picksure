@@ -23,6 +23,7 @@ export default function AuthScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -41,19 +42,11 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (mode === 'signin') {
-        const { error } = await signInWithPassword(email, password);
-        if (error) {
-          setErrorMessage(error.message);
-        } else {
-          router.replace('/(tabs)/profile');
-        }
+        await signInWithPassword(email, password);
+        router.replace('/(tabs)/profile');
       } else {
-        const { error } = await signUpWithPassword(email, password, fullName.trim());
-        if (error) {
-          setErrorMessage(error.message);
-        } else {
-          router.replace('/(tabs)/profile');
-        }
+        await signUpWithPassword(email, password, fullName.trim());
+        router.replace('/(tabs)/profile');
       }
     } catch (e: any) {
       setErrorMessage(e.message || 'Authentication error');
@@ -230,10 +223,24 @@ export default function AuthScreen() {
                   style={[styles.input, styles.passwordInput]}
                   placeholder="Enter your password"
                   placeholderTextColor={Colors.textMuted}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
                 />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Feather
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={16}
+                    color={Colors.textMuted}
+                  />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -441,6 +448,12 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     fontFamily: Platform.select({ ios: 'System', default: 'normal' }),
+    paddingRight: 8,
+  },
+  eyeButton: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   checkboxRow: {
     flexDirection: 'row',

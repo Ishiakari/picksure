@@ -17,6 +17,7 @@ import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Line as SvgLine, Rect } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTemplates, updateTemplateStatsInFeed } from '@/hooks/useTemplates';
+import { useBookmarks } from '@/hooks/useBookmarks';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Colors, Fonts } from '@/constants/theme';
@@ -51,10 +52,11 @@ export default function TemplateDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { templates, loading } = useTemplates();
   const { user } = useAuth();
+  const { isBookmarked: checkBookmarked, toggleBookmark } = useBookmarks();
 
   const template = templates.find((t) => t.id === id);
+  const isBookmarked = template ? checkBookmarked(template.id) : false;
 
-  const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
   const [savedCount, setSavedCount] = useState<number>(0);
   const [usedCount, setUsedCount] = useState<number>(0);
   const [showGrid, setShowGrid] = useState(true);
@@ -91,13 +93,8 @@ export default function TemplateDetailScreen() {
             setSavedCount(currentSaved);
             setUsedCount(currentUsed);
           }
-
-          const val = await AsyncStorage.getItem(`saved_template_${userKey}_${template.id}`);
-          if (val === 'true' && isMounted) {
-            setIsBookmarked(true);
-          }
         } catch (err) {
-          console.warn('Error loading stats/bookmark:', err);
+          console.warn('Error loading stats:', err);
         }
       })();
     }
@@ -108,36 +105,17 @@ export default function TemplateDetailScreen() {
 
   const handleToggleBookmark = async () => {
     if (!template) return;
-    const userKey = user?.id || 'guest';
-    const nextState = !isBookmarked;
-    setIsBookmarked(nextState);
-    const newCount = nextState ? savedCount + 1 : Math.max(0, savedCount - 1);
+    const nextSaved = !isBookmarked;
+    const newCount = nextSaved ? savedCount + 1 : Math.max(0, savedCount - 1);
     setSavedCount(newCount);
 
     try {
+      await toggleBookmark(template.id);
       await AsyncStorage.setItem(`saved_count_val_${template.id}`, String(newCount));
-      if (nextState) {
-        await AsyncStorage.setItem(`saved_template_${userKey}_${template.id}`, 'true');
-      } else {
-        await AsyncStorage.removeItem(`saved_template_${userKey}_${template.id}`);
-      }
-
-      if (user?.id) {
-        if (nextState) {
-          await supabase.from('saved_templates').upsert([
-            { user_id: user.id, template_id: template.id }
-          ], { onConflict: 'user_id,template_id' });
-        } else {
-          await supabase.from('saved_templates')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('template_id', template.id);
-        }
-      }
-
       updateTemplateStatsInFeed(template.id, newCount, usedCount);
     } catch (err) {
-      console.warn('Bookmark sync error:', err);
+      console.warn('Bookmark sync error in detail:', err);
+      setSavedCount(savedCount);
     }
   };
 

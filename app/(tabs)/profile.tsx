@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useBookmarks } from '@/hooks/useBookmarks';
 import { Colors, Fonts } from '@/constants/theme';
 import UploadTemplateModal from '@/components/UploadTemplateModal';
 
@@ -28,70 +29,53 @@ const COLUMN_WIDTH = (width - 48) / 2;
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { templates, refresh, refreshing } = useTemplates();
+  const { bookmarkedIds, reloadBookmarks } = useBookmarks();
 
   const [activeTab, setActiveTab] = useState<'saved' | 'uploads'>('saved');
-  const [savedTemplateIds, setSavedTemplateIds] = useState<string[]>([]);
   const [uploadedTemplateIds, setUploadedTemplateIds] = useState<string[]>([]);
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
 
-  const loadUserCollections = async () => {
+  const loadUserUploads = async () => {
     try {
       const userKey = user?.id || 'guest';
-      const sIds = new Set<string>();
       const uIds = new Set<string>();
 
-      // 1. Fetch from Supabase if logged in
+      // 1. Fetch user uploads from Supabase
       if (user?.id) {
-        const { data: dbSaved, error: savedError } = await supabase
-          .from('saved_templates')
-          .select('template_id')
-          .eq('user_id', user.id);
-        if (savedError) {
-          console.warn('Supabase saved_templates query error:', savedError.message);
-        } else if (dbSaved) {
-          dbSaved.forEach((row) => sIds.add(row.template_id));
-        }
-
         const { data: dbUploads, error: uploadsError } = await supabase
           .from('templates')
           .select('id')
           .eq('creator_id', user.id);
         if (uploadsError) {
-          console.warn('Supabase my_uploads templates query error:', uploadsError.message);
+          console.warn('Supabase my_uploads query error:', uploadsError.message);
         } else if (dbUploads) {
           dbUploads.forEach((row) => uIds.add(row.id));
         }
       }
 
-      // 2. Read user-scoped local storage
+      // 2. Read user-scoped local upload keys
       const keys = await AsyncStorage.getAllKeys();
-      const savedPrefix = 'saved_template_' + userKey + '_';
       const uploadPrefix = 'my_upload_' + userKey + '_';
-
       for (const key of keys) {
-        if (key.startsWith(savedPrefix)) {
-          const val = await AsyncStorage.getItem(key);
-          if (val === 'true') sIds.add(key.replace(savedPrefix, ''));
-        } else if (key.startsWith(uploadPrefix)) {
+        if (key.startsWith(uploadPrefix)) {
           const val = await AsyncStorage.getItem(key);
           if (val === 'true') uIds.add(key.replace(uploadPrefix, ''));
         }
       }
 
-      setSavedTemplateIds(Array.from(sIds));
       setUploadedTemplateIds(Array.from(uIds));
     } catch (err) {
-      console.warn('Failed to load user collections:', err);
+      console.warn('Failed to load user uploads:', err);
     }
   };
 
   useEffect(() => {
-    loadUserCollections();
+    loadUserUploads();
   }, [user?.id]);
 
   const handleRefresh = async () => {
     await refresh();
-    await loadUserCollections();
+    await Promise.all([loadUserUploads(), reloadBookmarks()]);
   };
 
   const handleTemplatePress = (id: string) => {
@@ -122,15 +106,15 @@ export default function ProfileScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          setSavedTemplateIds([]);
           setUploadedTemplateIds([]);
           await signOut();
+          await reloadBookmarks();
         },
       },
     ]);
   };
 
-  const savedTemplates = user ? templates.filter((t) => savedTemplateIds.includes(t.id)) : [];
+  const savedTemplates = user ? templates.filter((t) => bookmarkedIds.has(t.id)) : [];
   const uploadedTemplates = user
     ? templates.filter(
         (t) =>
@@ -394,7 +378,7 @@ export default function ProfileScreen() {
         onClose={() => setIsUploadModalVisible(false)}
         onUploadSuccess={() => {
           refresh();
-          loadUserCollections();
+          loadUserUploads();
         }}
       />
     </SafeAreaView>

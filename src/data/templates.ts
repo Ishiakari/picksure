@@ -1,3 +1,4 @@
+import { ImageSourcePropType } from 'react-native';
 import { CategoryType } from '@/src/constants/categories';
 
 export interface Template {
@@ -10,7 +11,7 @@ export interface Template {
   savedCount: string;
   ratio?: string;
   description: string;
-  imageSource: any;
+  imageSource: ImageSourcePropType | { uri: string };
   tips: string[];
   creator_id?: string;
 }

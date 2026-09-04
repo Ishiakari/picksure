@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Linking } from 'react-native';
@@ -16,10 +17,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInWithPassword: (email: string, pass: string) => Promise<any>;
-  signUpWithPassword: (email: string, pass: string, fullName?: string) => Promise<any>;
-  signInWithEmailOTP: (email: string) => Promise<any>;
-  verifyEmailOTP: (email: string, token: string) => Promise<any>;
+  signInWithPassword: (email: string, pass: string) => Promise<Awaited<ReturnType<typeof passwordSignIn>>>;
+  signUpWithPassword: (email: string, pass: string, fullName?: string) => Promise<Awaited<ReturnType<typeof passwordSignUp>>>;
+  signInWithEmailOTP: (email: string) => Promise<Awaited<ReturnType<typeof emailSignIn>>>;
+  verifyEmailOTP: (email: string, token: string) => Promise<Awaited<ReturnType<typeof emailVerify>>>;
   signOut: () => Promise<void>;
 }
 
@@ -28,10 +29,10 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   signInWithGoogle: async () => {},
-  signInWithPassword: async () => {},
-  signUpWithPassword: async () => {},
-  signInWithEmailOTP: async () => {},
-  verifyEmailOTP: async () => {},
+  signInWithPassword: async () => ({} as any),
+  signUpWithPassword: async () => ({} as any),
+  signInWithEmailOTP: async () => ({} as any),
+  verifyEmailOTP: async () => ({} as any),
   signOut: async () => {},
 });
 
