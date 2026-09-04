@@ -8,8 +8,9 @@ export interface Template {
   time: string;
   usedCount: string;
   savedCount: string;
+  ratio?: string;
   description: string;
-  imageSource: any; // Handles local require() asset loading paths for your reference photos
+  imageSource: any;
   tips: string[];
   creator_id?: string;
 }
@@ -23,6 +24,7 @@ export const TEMPLATES: Template[] = [
     time: '2 min',
     usedCount: '12.4k',
     savedCount: '3.2k',
+    ratio: '3:4 RATIO',
     description: 'Capture that effortless, sun-dappled café energy. Perfect for lifestyle portraits with a warm, intimate feel.',
     imageSource: require('../../assets/images/previews/cafe-portrait.jpg'), 
     tips: [
@@ -39,6 +41,7 @@ export const TEMPLATES: Template[] = [
     time: '3 min',
     usedCount: '5.4k',
     savedCount: '1.8k',
+    ratio: '4:5 RATIO',
     description: 'A relaxing outdoor study setup focusing on diagonal perspectives and deep bench alignment.',
     imageSource: require('../../assets/images/previews/study.jpg'), 
     tips: [
@@ -55,6 +58,7 @@ export const TEMPLATES: Template[] = [
     time: '2 min',
     usedCount: '8.2k',
     savedCount: '2.5k',
+    ratio: '4:5 RATIO',
     description: 'A whimsical, fairytale-inspired back-profile shot in a sunlit flower field, capturing natural movement and deep green forest contrast.',
     imageSource: require('../../assets/images/previews/meadow.jpg'), 
     tips: [
@@ -72,6 +76,7 @@ export const TEMPLATES: Template[] = [
     time: '3 min',
     usedCount: '15.1k',
     savedCount: '4.7k',
+    ratio: '1:1.618 RATIO',
     description: 'Dynamic low-angle street portrait capturing fluid motion, shoe details, and architectural leading lines.',
     imageSource: require('../../assets/images/previews/cafe-portrait.jpg'),
     tips: [
@@ -88,6 +93,7 @@ export const TEMPLATES: Template[] = [
     time: '5 min',
     usedCount: '9.8k',
     savedCount: '3.9k',
+    ratio: '1:1 RATIO',
     description: 'High-contrast studio-style editorial framing using harsh shadows and precise geometry.',
     imageSource: require('../../assets/images/previews/study.jpg'),
     tips: [
@@ -104,6 +110,7 @@ export const TEMPLATES: Template[] = [
     time: '2 min',
     usedCount: '11.3k',
     savedCount: '3.1k',
+    ratio: '1:1.618 RATIO',
     description: 'Clean, serene composition using doorway archways and negative sky space to frame a clean silhouette.',
     imageSource: require('../../assets/images/previews/meadow.jpg'),
     tips: [
@@ -120,6 +127,7 @@ export const TEMPLATES: Template[] = [
     time: '1 min',
     usedCount: '21.0k',
     savedCount: '6.2k',
+    ratio: '9:16 RATIO',
     description: 'Effortless everyday fit check highlighting textures and relaxed posture with direct mirror reflection.',
     imageSource: require('../../assets/images/previews/cafe-portrait.jpg'),
     tips: [
@@ -136,6 +144,7 @@ export const TEMPLATES: Template[] = [
     time: '4 min',
     usedCount: '14.6k',
     savedCount: '5.0k',
+    ratio: '3:2 RATIO',
     description: 'Heartwarming candid duo composition capturing genuine laughter and side-by-side golden hour warmth.',
     imageSource: require('../../assets/images/previews/meadow.jpg'),
     tips: [

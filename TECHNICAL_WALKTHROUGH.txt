@@ -1,160 +1,160 @@
-﻿# PICKSURE � TECHNICAL WALKTHROUGH & ARCHITECTURAL ANALYSIS
+   # PICKSURE � TECHNICAL WALKTHROUGH & ARCHITECTURAL ANALYSIS
 
-================================================================================
-1. HIGH-LEVEL OVERVIEW
-================================================================================
+   ================================================================================
+   1. HIGH-LEVEL OVERVIEW
+   ================================================================================
 
-1.1 What the Codebase Does & Problem Solved:
-PickSure is a cross-platform (iOS, Android, and Web) React Native application designed for composition-guided photography. Taking well-composed or reference-accurate photos is difficult for non-professional photographers. PickSure solves this through:
-- Ghost Framing / Onion Skinning: Renders translucent reference overlays directly over a live camera viewfinder.
-- Dynamic Visual Guides: Rule-of-thirds grid, interactive accelerometer-driven horizon leveler, and framing corner markers.
-- Community & Curated Templates: Discovering, bookmarking, and uploading custom reference templates to reproduce specific poses, compositions, and lighting.
+   1.1 What the Codebase Does & Problem Solved:
+   PickSure is a cross-platform (iOS, Android, and Web) React Native application designed for composition-guided photography. Taking well-composed or reference-accurate photos is difficult for non-professional photographers. PickSure solves this through:
+   - Ghost Framing / Onion Skinning: Renders translucent reference overlays directly over a live camera viewfinder.
+   - Dynamic Visual Guides: Rule-of-thirds grid, interactive accelerometer-driven horizon leveler, and framing corner markers.
+   - Community & Curated Templates: Discovering, bookmarking, and uploading custom reference templates to reproduce specific poses, compositions, and lighting.
 
-1.2 Core Architectural Pattern:
-PickSure implements a Client-Side Reactive Architecture with Provider/Service Layering built upon Expo Router (v54 / File-based routing):
-- Presentation Layer: Expo Router file-based screens (`app/` stack routes and `app/(tabs)/` tab navigation) with atomic, modular UI components in `components/`.
-- Context / Global State Layer: React Context providers (`AuthProvider`, `ThemeProvider`) wrapping the root component tree.
-- Service & Domain Layer: Decoupled singleton services (`templateService`, `auth`) interacting with the Supabase backend (PostgreSQL database, Authentication, and Storage Buckets).
-- In-Memory Event Cache: A lightweight module-level observer pattern inside `hooks/useTemplates.ts` that synchronizes template feed updates and user uploads instantaneously across navigation transitions without layout thrashing.
-
-
-================================================================================
-2. FILE-BY-FILE & COMPONENT BREAKDOWN
-================================================================================
-
---------------------------------------------------------------------------------
-A. Root Layout & Routing Configuration
---------------------------------------------------------------------------------
-1. app/_layout.tsx
-   - Responsibility: Top-level entry point; configures global providers (SafeAreaProvider, AuthProvider, ThemeProvider) and the primary native Stack navigator.
-   - Key APIs & Hooks: `Stack` (expo-router), `StatusBar` (expo-status-bar), `SafeAreaProvider`.
-   - External Modules: `expo-router`, `react-native-safe-area-context`, `react-native-reanimated`.
-
-2. app/(tabs)/_layout.tsx
-   - Responsibility: Bottom tab navigation layout defining three primary screens: Discover Feed (`index.tsx`), Explore/Categories (`explore.tsx`), and Profile/Saved (`profile.tsx`).
-   - Key APIs & Hooks: `Tabs` (expo-router), `useTheme()` custom context hook.
-   - External Modules: `@expo/vector-icons` (Ionicons), custom `HapticTab` component.
-
---------------------------------------------------------------------------------
-B. Screens
---------------------------------------------------------------------------------
-3. app/camera.tsx (Core Camera & Viewfinder Engine)
-   - Responsibility: Live camera preview screen featuring translucent template overlays, real-time sensor leveler, rule-of-thirds grid, zoom/flash/timer controls, photo capture, and session gallery preview.
-   - Key Hooks & State:
-     * `useLocalSearchParams<{ id: string }>()`: Retrieves template ID parameter passed from feed or detail.
-     * `useState`: `cameraPermission`, `mediaPermission`, `facing`, `flash`, `zoom`, `opacityValue`, `rollAngle`, `isLevel`, `countdown`, `capturedPhotosList`, `isGalleryVisible`.
-     * `useRef`: `cameraRef` (invokes `takePictureAsync`), `flashAnim` (pulsing "Align your shot" animation).
-     * `Accelerometer.addListener`: Subscribes at 100ms intervals to compute device roll tilt angle: `atan2(x, sqrt(y^2 + z^2)) * (180 / PI)`.
-     * `executeTakePicture`: Captures photo via camera ref, adds thumbnail to session list, and saves to device camera roll using `MediaLibrary.saveToLibraryAsync`.
-   - External Modules: `expo-camera` (`CameraView`, `Camera`), `expo-sensors` (`Accelerometer`), `expo-media-library`, `expo-image`, `expo-router`.
-
-4. app/(tabs)/index.tsx (Home / Discover Feed)
-   - Responsibility: Main exploration screen displaying a masonry grid of photography templates, category filter chips, search bar, and custom template upload button.
-   - Key Hooks & State: `useTemplates()`, `useAuth()`, `useTheme()`, `searchQuery`, `selectedCategory`, `isUploadModalOpen`, `isAuthModalOpen`.
-   - External Modules: `expo-router`, `expo-image`, `react-native`.
-
-5. app/(tabs)/explore.tsx (Categories & Discovery)
-   - Responsibility: Filtered category browser with visual banner cards (Cafe & Lifestyle, OOTD & Streetwear, Cottagecore & Nature, Editorial & Noir, Minimalist & Silhouette, Casual & Mirror Check, Couples & Friends) allowing instant exploration of themed reference poses.
-   - Key Hooks & State: `useTemplates()`, `useTheme()`, `activeCategory`.
-   - External Modules: `expo-router`, `expo-image`.
-
-6. app/(tabs)/profile.tsx (User Profile & Saved Templates)
-   - Responsibility: Manages user session, authentication actions (Login/Register/Logout), theme toggling (Light/Dark), and saved/bookmarked template collections.
-   - Key Hooks & State: `useAuth()`, `useTheme()`, `useTemplates()`, `activeTab` ('saved' | 'my_uploads').
-   - External Modules: `expo-router`, `@react-native-async-storage/async-storage`.
-
-7. app/detail.tsx (Template Detail View)
-   - Responsibility: Displays high-resolution template preview, metadata (photographer, equipment/camera parameters, composition tips), like/save counters, and primary "Use This Template" CTA launching the camera.
-   - Key Hooks & State: `useLocalSearchParams<{ id: string }>()`, `useTemplates()`, `isSaved`, `likesCount`, `handleUseTemplate`.
-   - External Modules: `expo-router`, `expo-image`.
-
---------------------------------------------------------------------------------
-C. Custom Hooks, Context & Services
---------------------------------------------------------------------------------
-8. hooks/useTemplates.ts
-   - Responsibility: Custom data hook providing paginated template fetching, pull-to-refresh, background image prefetching via `Image.prefetch()`, and cross-screen updates via module listener subscription.
-   - Key APIs & Functions: `fetchPage()`, `loadMore()`, `refresh()`, `addCustomTemplateToFeed()`, `updateTemplateStatsInFeed()`.
-   - External Modules: `expo-image`, Supabase service.
-
-9. context/AuthContext.tsx
-   - Responsibility: Global user session provider managing authentication lifecycle, Supabase auth state changes, and session storage.
-   - Key APIs & State: `user`, `session`, `loading`, `signIn()`, `signUp()`, `signOut()`.
-   - External Modules: `@supabase/supabase-js`, `@react-native-async-storage/async-storage`.
-
-10. context/ThemeContext.tsx
-    - Responsibility: Controls app-wide light/dark theme preference and persists choice in local storage.
-    - Key APIs & State: `themeMode` ('light' | 'dark'), `toggleTheme()`.
-
-11. services/templateService.ts & lib/supabase.ts
-    - Responsibility: Centralizes backend API communication, Supabase database queries (`templates` table), and binary storage uploads (`template-images` bucket).
-    - External Modules: `@supabase/supabase-js`.
-
---------------------------------------------------------------------------------
-D. Modular UI Components
---------------------------------------------------------------------------------
-12. components/SliderOpacity.tsx: Interactive drag/press track to adjust overlay transparency from 0% to 100%.
-13. components/SessionGalleryModal.tsx: Modal displaying all photos captured during the active shooting session with full-screen preview and share options.
-14. components/UploadTemplateModal.tsx: Allows users to pick an image (`expo-image-picker`), fill in title/category metadata, and upload to the template feed.
-15. components/AuthModal.tsx: Floating modal dialog for user login and registration.
+   1.2 Core Architectural Pattern:
+   PickSure implements a Client-Side Reactive Architecture with Provider/Service Layering built upon Expo Router (v54 / File-based routing):
+   - Presentation Layer: Expo Router file-based screens (`app/` stack routes and `app/(tabs)/` tab navigation) with atomic, modular UI components in `components/`.
+   - Context / Global State Layer: React Context providers (`AuthProvider`, `ThemeProvider`) wrapping the root component tree.
+   - Service & Domain Layer: Decoupled singleton services (`templateService`, `auth`) interacting with the Supabase backend (PostgreSQL database, Authentication, and Storage Buckets).
+   - In-Memory Event Cache: A lightweight module-level observer pattern inside `hooks/useTemplates.ts` that synchronizes template feed updates and user uploads instantaneously across navigation transitions without layout thrashing.
 
 
-================================================================================
-3. DATA FLOW & STATE MANAGEMENT
-================================================================================
+   ================================================================================
+   2. FILE-BY-FILE & COMPONENT BREAKDOWN
+   ================================================================================
 
-3.1 Route Parameter Passing:
-- User selects a template in Feed or Detail -> triggers `router.push({ pathname: '/camera', params: { id: template.id } })`.
-- `app/camera.tsx` reads `id` via `useLocalSearchParams`, finds the matching template object, and initializes the overlay.
+   --------------------------------------------------------------------------------
+   A. Root Layout & Routing Configuration
+   --------------------------------------------------------------------------------
+   1. app/_layout.tsx
+      - Responsibility: Top-level entry point; configures global providers (SafeAreaProvider, AuthProvider, ThemeProvider) and the primary native Stack navigator.
+      - Key APIs & Hooks: `Stack` (expo-router), `StatusBar` (expo-status-bar), `SafeAreaProvider`.
+      - External Modules: `expo-router`, `react-native-safe-area-context`, `react-native-reanimated`.
 
-3.2 Shared State & In-Memory Observer:
-- When a user uploads a new template via `UploadTemplateModal`:
-  1. `templateService.createTemplate(...)` uploads image binary to Supabase Storage and inserts record into database.
-  2. `addCustomTemplateToFeed(newTemplate)` is called.
-  3. Module cache (`cachedTemplates`) prepends the new item and executes all registered subscriber callbacks (`notifyListeners()`).
-  4. All mounted screens (`Feed`, `Explore`, `Profile`) re-render immediately without requiring page reloads or layout jumps.
+   2. app/(tabs)/_layout.tsx
+      - Responsibility: Bottom tab navigation layout defining three primary screens: Discover Feed (`index.tsx`), Explore/Categories (`explore.tsx`), and Profile/Saved (`profile.tsx`).
+      - Key APIs & Hooks: `Tabs` (expo-router), `useTheme()` custom context hook.
+      - External Modules: `@expo/vector-icons` (Ionicons), custom `HapticTab` component.
 
-3.3 Remote Persistence & Auth:
-- User session tokens are saved to `AsyncStorage` via Supabase client.
-- Auth state changes trigger re-evaluation of user-specific bookmarks and uploaded templates in `ProfileScreen`.
+   --------------------------------------------------------------------------------
+   B. Screens
+   --------------------------------------------------------------------------------
+   3. app/camera.tsx (Core Camera & Viewfinder Engine)
+      - Responsibility: Live camera preview screen featuring translucent template overlays, real-time sensor leveler, rule-of-thirds grid, zoom/flash/timer controls, photo capture, and session gallery preview.
+      - Key Hooks & State:
+      * `useLocalSearchParams<{ id: string }>()`: Retrieves template ID parameter passed from feed or detail.
+      * `useState`: `cameraPermission`, `mediaPermission`, `facing`, `flash`, `zoom`, `opacityValue`, `rollAngle`, `isLevel`, `countdown`, `capturedPhotosList`, `isGalleryVisible`.
+      * `useRef`: `cameraRef` (invokes `takePictureAsync`), `flashAnim` (pulsing "Align your shot" animation).
+      * `Accelerometer.addListener`: Subscribes at 100ms intervals to compute device roll tilt angle: `atan2(x, sqrt(y^2 + z^2)) * (180 / PI)`.
+      * `executeTakePicture`: Captures photo via camera ref, adds thumbnail to session list, and saves to device camera roll using `MediaLibrary.saveToLibraryAsync`.
+      - External Modules: `expo-camera` (`CameraView`, `Camera`), `expo-sensors` (`Accelerometer`), `expo-media-library`, `expo-image`, `expo-router`.
+
+   4. app/(tabs)/index.tsx (Home / Discover Feed)
+      - Responsibility: Main exploration screen displaying a masonry grid of photography templates, category filter chips, search bar, and custom template upload button.
+      - Key Hooks & State: `useTemplates()`, `useAuth()`, `useTheme()`, `searchQuery`, `selectedCategory`, `isUploadModalOpen`, `isAuthModalOpen`.
+      - External Modules: `expo-router`, `expo-image`, `react-native`.
+
+   5. app/(tabs)/explore.tsx (Categories & Discovery)
+      - Responsibility: Filtered category browser with visual banner cards (Portrait, Cafe, Travel, Landscape, Street) allowing instant exploration of themed reference poses.
+      - Key Hooks & State: `useTemplates()`, `useTheme()`, `activeCategory`.
+      - External Modules: `expo-router`, `expo-image`.
+
+   6. app/(tabs)/profile.tsx (User Profile & Saved Templates)
+      - Responsibility: Manages user session, authentication actions (Login/Register/Logout), theme toggling (Light/Dark), and saved/bookmarked template collections.
+      - Key Hooks & State: `useAuth()`, `useTheme()`, `useTemplates()`, `activeTab` ('saved' | 'my_uploads').
+      - External Modules: `expo-router`, `@react-native-async-storage/async-storage`.
+
+   7. app/detail.tsx (Template Detail View)
+      - Responsibility: Displays high-resolution template preview, metadata (photographer, equipment/camera parameters, composition tips), like/save counters, and primary "Use This Template" CTA launching the camera.
+      - Key Hooks & State: `useLocalSearchParams<{ id: string }>()`, `useTemplates()`, `isSaved`, `likesCount`, `handleUseTemplate`.
+      - External Modules: `expo-router`, `expo-image`.
+
+   --------------------------------------------------------------------------------
+   C. Custom Hooks, Context & Services
+   --------------------------------------------------------------------------------
+   8. hooks/useTemplates.ts
+      - Responsibility: Custom data hook providing paginated template fetching, pull-to-refresh, background image prefetching via `Image.prefetch()`, and cross-screen updates via module listener subscription.
+      - Key APIs & Functions: `fetchPage()`, `loadMore()`, `refresh()`, `addCustomTemplateToFeed()`, `updateTemplateStatsInFeed()`.
+      - External Modules: `expo-image`, Supabase service.
+
+   9. context/AuthContext.tsx
+      - Responsibility: Global user session provider managing authentication lifecycle, Supabase auth state changes, and session storage.
+      - Key APIs & State: `user`, `session`, `loading`, `signIn()`, `signUp()`, `signOut()`.
+      - External Modules: `@supabase/supabase-js`, `@react-native-async-storage/async-storage`.
+
+   10. context/ThemeContext.tsx
+      - Responsibility: Controls app-wide light/dark theme preference and persists choice in local storage.
+      - Key APIs & State: `themeMode` ('light' | 'dark'), `toggleTheme()`.
+
+   11. services/templateService.ts & lib/supabase.ts
+      - Responsibility: Centralizes backend API communication, Supabase database queries (`templates` table), and binary storage uploads (`template-images` bucket).
+      - External Modules: `@supabase/supabase-js`.
+
+   --------------------------------------------------------------------------------
+   D. Modular UI Components
+   --------------------------------------------------------------------------------
+   12. components/SliderOpacity.tsx: Interactive drag/press track to adjust overlay transparency from 0% to 100%.
+   13. components/SessionGalleryModal.tsx: Modal displaying all photos captured during the active shooting session with full-screen preview and share options.
+   14. components/UploadTemplateModal.tsx: Allows users to pick an image (`expo-image-picker`), fill in title/category metadata, and upload to the template feed.
+   15. components/AuthModal.tsx: Floating modal dialog for user login and registration.
 
 
-================================================================================
-4. KEY UI/UX IMPLEMENTATIONS
-================================================================================
+   ================================================================================
+   3. DATA FLOW & STATE MANAGEMENT
+   ================================================================================
 
-4.1 Ghost Framing / Onion-Skinning Overlay Engine:
-In `app/camera.tsx`, visual layers are structured as follows:
-- Layer 1 (Bottom): `CameraView` live stream preview.
-- Layer 2 (Overlay): `<Image source={template.imageSource} style={[StyleSheet.absoluteFill, { opacity: getOverlayOpacity() }]} pointerEvents="none" />`.
-  * `pointerEvents="none"` ensures touch gestures pass through seamlessly to underlying controls.
-- Layer 3 (Guidelines): Rule-of-thirds grid lines (positioned at 33.3% and 66.6% via absolute positioning) and frame corner brackets.
-- Layer 4 (Dynamic Leveler): Accelerometer-driven leveler line rotated via `transform: [{ rotate: '-rollAngle deg' }]`.
-- Layer 5 (Top Interactive Dock): Opacity slider, zoom capsule (1x, 1.5x, 2x, 5x, MAX), timer, flash toggle, and rose-pink shutter button.
+   3.1 Route Parameter Passing:
+   - User selects a template in Feed or Detail -> triggers `router.push({ pathname: '/camera', params: { id: template.id } })`.
+   - `app/camera.tsx` reads `id` via `useLocalSearchParams`, finds the matching template object, and initializes the overlay.
 
-4.2 Web Viewfinder Simulator:
-When running on Web (`Platform.OS === 'web'`), `app/camera.tsx` gracefully mounts a simulated viewfinder with simulated reference transparency so the UI and overlays remain 100% testable in desktop browsers.
+   3.2 Shared State & In-Memory Observer:
+   - When a user uploads a new template via `UploadTemplateModal`:
+   1. `templateService.createTemplate(...)` uploads image binary to Supabase Storage and inserts record into database.
+   2. `addCustomTemplateToFeed(newTemplate)` is called.
+   3. Module cache (`cachedTemplates`) prepends the new item and executes all registered subscriber callbacks (`notifyListeners()`).
+   4. All mounted screens (`Feed`, `Explore`, `Profile`) re-render immediately without requiring page reloads or layout jumps.
+
+   3.3 Remote Persistence & Auth:
+   - User session tokens are saved to `AsyncStorage` via Supabase client.
+   - Auth state changes trigger re-evaluation of user-specific bookmarks and uploaded templates in `ProfileScreen`.
 
 
-================================================================================
-5. POTENTIAL BOTTLENECKS & EDGE CASES
-================================================================================
+   ================================================================================
+   4. KEY UI/UX IMPLEMENTATIONS
+   ================================================================================
 
-1. Camera Aspect Ratio vs. Device Sensor:
-   - Current State: Viewfinder dimensions are hardcoded to 4:3 (`VIEWFINDER_WIDTH * (4 / 3)`).
-   - Edge Case: Many Android sensors default to 16:9 native aspect ratio, which may lead to letterboxing or slight image scaling differences between viewfinder and captured output.
-   - Fix: Query supported aspect ratios dynamically via `CameraView` or adapt preview container sizing dynamically.
+   4.1 Ghost Framing / Onion-Skinning Overlay Engine:
+   In `app/camera.tsx`, visual layers are structured as follows:
+   - Layer 1 (Bottom): `CameraView` live stream preview.
+   - Layer 2 (Overlay): `<Image source={template.imageSource} style={[StyleSheet.absoluteFill, { opacity: getOverlayOpacity() }]} pointerEvents="none" />`.
+   * `pointerEvents="none"` ensures touch gestures pass through seamlessly to underlying controls.
+   - Layer 3 (Guidelines): Rule-of-thirds grid lines (positioned at 33.3% and 66.6% via absolute positioning) and frame corner brackets.
+   - Layer 4 (Dynamic Leveler): Accelerometer-driven leveler line rotated via `transform: [{ rotate: '-rollAngle deg' }]`.
+   - Layer 5 (Top Interactive Dock): Opacity slider, zoom capsule (1x, 1.5x, 2x, 5x, MAX), timer, flash toggle, and rose-pink shutter button.
 
-2. Accelerometer Re-renders on UI Thread:
-   - Current State: Accelerometer fires at 100ms intervals, executing standard React `useState` updates (`setRollAngle`, `setIsLevel`).
-   - Risk: High-frequency state updates in large component trees can cause micro-stutters.
-   - Fix: Transition the rotation transform to `react-native-reanimated` shared values (`useAnimatedStyle`) to process orientation changes purely on the native UI thread.
+   4.2 Web Viewfinder Simulator:
+   When running on Web (`Platform.OS === 'web'`), `app/camera.tsx` gracefully mounts a simulated viewfinder with simulated reference transparency so the UI and overlays remain 100% testable in desktop browsers.
 
-3. Media Permissions Permanent Denial:
-   - Current State: Checks and requests permissions in `useEffect`.
-   - Edge Case: If a user selects "Don't ask again" on Android/iOS, standard request calls will silently fail without informing the user how to fix it.
-   - Fix: Detect permanent denial and display an action button that triggers `Linking.openSettings()`.
 
-4. In-Memory Session Gallery Heap Usage:
-   - Current State: Captured image URIs accumulate in `capturedPhotosList` state array.
-   - Risk: Continuous photo bursts during long sessions without navigation away may increase device memory footprint.
-   - Fix: Bound session list size or lazy load previews via low-res thumbnail generation.
+   ================================================================================
+   5. POTENTIAL BOTTLENECKS & EDGE CASES
+   ================================================================================
+
+   1. Camera Aspect Ratio vs. Device Sensor:
+      - Current State: Viewfinder dimensions are hardcoded to 4:3 (`VIEWFINDER_WIDTH * (4 / 3)`).
+      - Edge Case: Many Android sensors default to 16:9 native aspect ratio, which may lead to letterboxing or slight image scaling differences between viewfinder and captured output.
+      - Fix: Query supported aspect ratios dynamically via `CameraView` or adapt preview container sizing dynamically.
+
+   2. Accelerometer Re-renders on UI Thread:
+      - Current State: Accelerometer fires at 100ms intervals, executing standard React `useState` updates (`setRollAngle`, `setIsLevel`).
+      - Risk: High-frequency state updates in large component trees can cause micro-stutters.
+      - Fix: Transition the rotation transform to `react-native-reanimated` shared values (`useAnimatedStyle`) to process orientation changes purely on the native UI thread.
+
+   3. Media Permissions Permanent Denial:
+      - Current State: Checks and requests permissions in `useEffect`.
+      - Edge Case: If a user selects "Don't ask again" on Android/iOS, standard request calls will silently fail without informing the user how to fix it.
+      - Fix: Detect permanent denial and display an action button that triggers `Linking.openSettings()`.
+
+   4. In-Memory Session Gallery Heap Usage:
+      - Current State: Captured image URIs accumulate in `capturedPhotosList` state array.
+      - Risk: Continuous photo bursts during long sessions without navigation away may increase device memory footprint.
+      - Fix: Bound session list size or lazy load previews via low-res thumbnail generation.
