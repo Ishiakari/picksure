@@ -71,6 +71,7 @@ export const templateService = {
           imageSource: { uri: item.image_url },
           difficulty: (item.difficulty as 'Beginner' | 'Intermediate' | 'Advanced') || 'Beginner',
           time: item.time || item.time_setup || '2 min',
+          ratio: item.ratio || undefined,
           tips: tipsArray,
           usedCount: item.used_count !== undefined && item.used_count !== null ? String(item.used_count) : '0',
           savedCount: item.saved_count !== undefined && item.saved_count !== null ? String(item.saved_count) : '0',
@@ -83,6 +84,27 @@ export const templateService = {
     } catch (err) {
       console.error("Error in templateService.getTemplates:", err);
       throw err;
+    }
+  },
+
+  async getCategoryCounts(): Promise<Record<string, number>> {
+    try {
+      const { data, error } = await supabase
+        .from('templates')
+        .select('category');
+
+      if (error || !data) return {};
+
+      const counts: Record<string, number> = {};
+      data.forEach((row) => {
+        if (row.category) {
+          counts[row.category] = (counts[row.category] || 0) + 1;
+        }
+      });
+      return counts;
+    } catch (err) {
+      console.warn("Error in getCategoryCounts:", err);
+      return {};
     }
   },
 };

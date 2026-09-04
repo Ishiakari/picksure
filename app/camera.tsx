@@ -35,6 +35,15 @@ export default function CameraScreen() {
     return idx >= 0 ? idx : 0;
   });
 
+  useEffect(() => {
+    if (activeId && templates.length > 0) {
+      const idx = templates.findIndex((t) => t.id === activeId);
+      if (idx >= 0) {
+        setCurrentIndex(idx);
+      }
+    }
+  }, [activeId, templates]);
+
   const template = templates[currentIndex] || templates[0];
 
   // Camera Permissions
@@ -48,7 +57,7 @@ export default function CameraScreen() {
   // Viewfinder Settings
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [flash, setFlash] = useState<'off' | 'on' | 'auto'>('off');
-  const [zoomIndex, setZoomIndex] = useState(1); // 0: 0.5x, 1: 1x, 2: 1.5x, 3: 2x, 4: MAX
+  const [zoomIndex, setZoomIndex] = useState(0); // 0: 1x, 1: 1.5x, 2: 2x, 3: MAX
   const [showGrid, setShowGrid] = useState(true);
   const [showGhost, setShowGhost] = useState(true);
   const [overlayMode, setOverlayMode] = useState<'outline' | 'photo'>('outline'); // C1: Outline vs Photo overlay mode
@@ -66,6 +75,19 @@ export default function CameraScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const alignToastAnim = useRef(new Animated.Value(0)).current;
   const cameraRef = useRef<any>(null);
+
+  const requestPermissions = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const requested = await Camera.requestCameraPermissionsAsync();
+        setCameraPermission(requested);
+        const mediaStatus = await MediaLibrary.requestPermissionsAsync();
+        setMediaPermission(mediaStatus.status === 'granted');
+      }
+    } catch (err) {
+      console.warn('Camera permissions warning:', err);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -143,20 +165,19 @@ export default function CameraScreen() {
   };
 
   const handleCycleTemplate = () => {
+    if (templates.length === 0) return;
     setCurrentIndex((prev) => (prev + 1) % templates.length);
   };
 
   const getZoomValue = () => {
     switch (zoomIndex) {
       case 0:
-        return 0; // 0.5x simulation
-      case 1:
         return 0; // 1x
-      case 2:
+      case 1:
         return 0.08; // 1.5x
-      case 3:
+      case 2:
         return 0.16; // 2x
-      case 4:
+      case 3:
         return 0.8; // MAX
       default:
         return 0;
@@ -225,6 +246,31 @@ export default function CameraScreen() {
     );
   }
 
+  if (cameraPermission.granted === false) {
+    return (
+      <SafeAreaView style={styles.centeredContainer}>
+        <Feather name="camera-off" size={48} color={Colors.textMuted} style={{ marginBottom: 16 }} />
+        <Text style={styles.permissionTitle}>Camera Access Denied</Text>
+        <Text style={styles.permissionSubtitle}>
+          PickSure requires camera access to guide your compositions and capture studio shots.
+        </Text>
+        <TouchableOpacity
+          style={styles.permissionButton}
+          onPress={requestPermissions}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.permissionButtonText}>Grant Camera Access</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.permissionBackBtn}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.permissionBackBtnText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   const isWeb = Platform.OS === 'web';
 
   return (
@@ -244,7 +290,7 @@ export default function CameraScreen() {
             ref={cameraRef}
             style={StyleSheet.absoluteFillObject}
             facing={facing}
-            flash={flash === 'auto' ? 'on' : flash}
+            flash={flash}
             zoom={getZoomValue()}
           />
         )}
@@ -524,9 +570,9 @@ export default function CameraScreen() {
           </View>
         </View>
 
-        {/* Focal Length / Zoom Selector Pill (From Figma 11:1274) */}
+        {/* Focal Length / Zoom Selector Pill */}
         <View style={styles.zoomPillContainer}>
-          {['0.5x', '1x', '1.5x', '2x', 'MAX'].map((label, idx) => {
+          {['1x', '1.5x', '2x', 'MAX'].map((label, idx) => {
             const isActive = zoomIndex === idx;
             return (
               <TouchableOpacity
@@ -621,6 +667,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#1D1C16',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  permissionTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 20,
+    color: Colors.textLight,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionSubtitle: {
+    fontFamily: Fonts.regular,
+    fontSize: 14,
+    color: 'rgba(254, 249, 240, 0.7)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  permissionButton: {
+    backgroundColor: Colors.primaryDark,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    marginBottom: 12,
+  },
+  permissionButtonText: {
+    fontFamily: Fonts.bold,
+    fontSize: 14,
+    color: Colors.background,
+  },
+  permissionBackBtn: {
+    paddingVertical: 8,
+  },
+  permissionBackBtnText: {
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    color: Colors.textMuted,
   },
   warmFilterScrim: {
     ...StyleSheet.absoluteFillObject,

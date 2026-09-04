@@ -52,15 +52,11 @@ export default function TemplateDetailScreen() {
   const { templates, loading } = useTemplates();
   const { user } = useAuth();
 
-  const template = templates.find((t) => t.id === id) || templates[0];
+  const template = templates.find((t) => t.id === id);
 
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
-  const [savedCount, setSavedCount] = useState<number>(() =>
-    parseCountString(template?.savedCount || 0)
-  );
-  const [usedCount, setUsedCount] = useState<number>(() =>
-    parseCountString(template?.usedCount || 0)
-  );
+  const [savedCount, setSavedCount] = useState<number>(0);
+  const [usedCount, setUsedCount] = useState<number>(0);
   const [showGrid, setShowGrid] = useState(true);
   const [showSilhouette, setShowSilhouette] = useState(true);
 
@@ -70,6 +66,9 @@ export default function TemplateDetailScreen() {
       const baseSaved = parseCountString(template.savedCount);
       const baseUsed = parseCountString(template.usedCount);
       const userKey = user?.id || 'guest';
+
+      setSavedCount(baseSaved);
+      setUsedCount(baseUsed);
 
       (async () => {
         try {
@@ -98,7 +97,7 @@ export default function TemplateDetailScreen() {
             setIsBookmarked(true);
           }
         } catch (err) {
-          console.warn('Counters fetch warning:', err);
+          console.warn('Error loading stats/bookmark:', err);
         }
       })();
     }
@@ -107,18 +106,8 @@ export default function TemplateDetailScreen() {
     };
   }, [template?.id, user?.id]);
 
-  if (!template) {
-    return (
-      <SafeAreaView style={styles.errorContainer}>
-        <Text style={styles.errorText}>Template not found.</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
   const handleToggleBookmark = async () => {
+    if (!template) return;
     const userKey = user?.id || 'guest';
     const nextState = !isBookmarked;
     setIsBookmarked(nextState);
@@ -153,6 +142,7 @@ export default function TemplateDetailScreen() {
   };
 
   const handleShare = async () => {
+    if (!template) return;
     try {
       await Share.share({
         message: `Check out the "${template.title}" composition guide on PickSure!`,
@@ -163,6 +153,7 @@ export default function TemplateDetailScreen() {
   };
 
   const handleLaunchCamera = async () => {
+    if (!template) return;
     const nextUsed = usedCount + 1;
     setUsedCount(nextUsed);
 
@@ -413,7 +404,7 @@ export default function TemplateDetailScreen() {
               <Feather name="compass" size={14} color={Colors.primaryDark} />
             </View>
             <Text style={styles.directorSectionTitle}>
-              DIRECTOR'S SHOOTING NOTES
+              {"DIRECTOR'S SHOOTING NOTES"}
             </Text>
           </View>
 

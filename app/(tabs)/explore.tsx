@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -14,6 +15,7 @@ import { Image } from 'expo-image';
 import { CATEGORIES, CategoryType } from '@/src/constants/categories';
 import { Colors, Fonts } from '@/constants/theme';
 import { useTemplates } from '@/hooks/useTemplates';
+import { templateService } from '@/services/templateService';
 import { FigmaImages } from '@/src/constants/assets';
 
 interface CategoryMeta {
@@ -69,7 +71,20 @@ const CATEGORY_DETAILS: Record<CategoryType, CategoryMeta> = {
 };
 
 export default function ExploreScreen() {
-  const { templates } = useTemplates();
+  const { templates, loading, error, retry } = useTemplates();
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    templateService.getCategoryCounts().then((counts) => {
+      if (isMounted) {
+        setCategoryCounts(counts);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [templates]);
 
   const handleCategoryPress = (category: CategoryType) => {
     router.navigate({
@@ -78,7 +93,17 @@ export default function ExploreScreen() {
     });
   };
 
+  const handleSearchPress = () => {
+    router.navigate({
+      pathname: '/(tabs)',
+      params: { openSearch: 'true' },
+    });
+  };
+
   const getTemplateCount = (category: CategoryType) => {
+    if (categoryCounts[category] !== undefined) {
+      return categoryCounts[category];
+    }
     return templates.filter((t) => t.category === category).length;
   };
 
@@ -91,7 +116,9 @@ export default function ExploreScreen() {
         <Text style={styles.headerTitle}>Explore Categories</Text>
         <TouchableOpacity
           style={styles.headerIconBtn}
-          onPress={() => router.push('/(tabs)')}
+          onPress={handleSearchPress}
+          accessibilityRole="button"
+          accessibilityLabel="Search templates"
         >
           <Feather name="search" size={18} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -104,6 +131,15 @@ export default function ExploreScreen() {
         <Text style={styles.introSubtitle}>
           Browse curated composition categories to find composition overlays, director guides, and pose references.
         </Text>
+
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>Unable to load categories: {error}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={retry}>
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Category Cards List */}
         <View style={styles.cardsContainer}>
@@ -209,6 +245,33 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 18,
     marginBottom: 16,
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(132, 60, 84, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    fontFamily: Fonts.medium,
+    fontSize: 12,
+    color: Colors.primaryDark,
+    flex: 1,
+  },
+  retryBtn: {
+    backgroundColor: Colors.primaryDark,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  retryBtnText: {
+    fontFamily: Fonts.bold,
+    fontSize: 11,
+    color: Colors.background,
   },
   cardsContainer: {
     gap: 14,

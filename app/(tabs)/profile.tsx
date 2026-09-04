@@ -42,19 +42,23 @@ export default function ProfileScreen() {
 
       // 1. Fetch from Supabase if logged in
       if (user?.id) {
-        const { data: dbSaved } = await supabase
+        const { data: dbSaved, error: savedError } = await supabase
           .from('saved_templates')
           .select('template_id')
           .eq('user_id', user.id);
-        if (dbSaved) {
+        if (savedError) {
+          console.warn('Supabase saved_templates query error:', savedError.message);
+        } else if (dbSaved) {
           dbSaved.forEach((row) => sIds.add(row.template_id));
         }
 
-        const { data: dbUploads } = await supabase
+        const { data: dbUploads, error: uploadsError } = await supabase
           .from('templates')
           .select('id')
           .eq('creator_id', user.id);
-        if (dbUploads) {
+        if (uploadsError) {
+          console.warn('Supabase my_uploads templates query error:', uploadsError.message);
+        } else if (dbUploads) {
           dbUploads.forEach((row) => uIds.add(row.id));
         }
       }
@@ -88,6 +92,13 @@ export default function ProfileScreen() {
   const handleRefresh = async () => {
     await refresh();
     await loadUserCollections();
+  };
+
+  const handleTemplatePress = (id: string) => {
+    router.push({
+      pathname: '/detail',
+      params: { id },
+    });
   };
 
   const handleShareProfile = async () => {
@@ -146,6 +157,8 @@ export default function ProfileScreen() {
         <TouchableOpacity
           style={styles.headerIconBtn}
           onPress={() => router.push('/modal')}
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
         >
           <Feather name="settings" size={18} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -157,6 +170,8 @@ export default function ProfileScreen() {
         <TouchableOpacity
           style={styles.headerIconBtn}
           onPress={user ? handleSignOut : () => router.push('/auth')}
+          accessibilityRole="button"
+          accessibilityLabel={user ? 'Sign out' : 'Sign in'}
         >
           <Feather
             name={user ? 'log-out' : 'log-in'}

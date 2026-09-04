@@ -24,6 +24,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Colors, Fonts } from '@/constants/theme';
 import UploadTemplateModal from '@/components/UploadTemplateModal';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/lib/supabase';
+
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 44) / 2;
 
@@ -42,13 +45,14 @@ export default function HomeScreen() {
     error,
   } = useTemplates();
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ category?: string }>();
+  const params = useLocalSearchParams<{ category?: string; openSearch?: string }>();
   const [selectedCategory, setSelectedCategory] = useState<FilterCategoryType>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
+  // Handle category and openSearch params
   useEffect(() => {
     if (params.category) {
       const matched = FILTER_CATEGORIES.find(
@@ -58,15 +62,83 @@ export default function HomeScreen() {
         setSelectedCategory(matched);
       }
     }
-  }, [params.category]);
+    if (params.openSearch === 'true') {
+      setIsSearchActive(true);
+    }
+  }, [params.category, params.openSearch]);
 
-  const toggleSave = (id: string) => {
+  // Load saved bookmarks from AsyncStorage & Supabase
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const userKey = user?.id || 'guest';
+        const sIds = new Set<string>();
+
+        if (user?.id) {
+          const { data, error } = await supabase
+            .from('saved_templates')
+            .select('template_id')
+            .eq('user_id', user.id);
+          if (!error && data) {
+            data.forEach((row) => sIds.add(row.template_id));
+          }
+        }
+
+        const keys = await AsyncStorage.getAllKeys();
+        const prefix = `saved_template_${userKey}_`;
+        for (const k of keys) {
+          if (k.startsWith(prefix)) {
+            const val = await AsyncStorage.getItem(k);
+            if (val === 'true') sIds.add(k.replace(prefix, ''));
+          }
+        }
+
+        if (isMounted) {
+          setSavedIds(sIds);
+        }
+      } catch (err) {
+        console.warn('Error initializing savedIds:', err);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  const toggleSave = async (id: string) => {
+    const userKey = user?.id || 'guest';
+    const isCurrentlySaved = savedIds.has(id);
+    const nextSaved = !isCurrentlySaved;
+
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
+      if (isCurrentlySaved) next.delete(id);
       else next.add(id);
       return next;
     });
+
+    try {
+      if (nextSaved) {
+        await AsyncStorage.setItem(`saved_template_${userKey}_${id}`, 'true');
+        if (user?.id) {
+          await supabase.from('saved_templates').upsert([
+            { user_id: user.id, template_id: id }
+          ], { onConflict: 'user_id,template_id' });
+        }
+      } else {
+        await AsyncStorage.removeItem(`saved_template_${userKey}_${id}`);
+        if (user?.id) {
+          await supabase.from('saved_templates')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('template_id', id);
+        }
+      }
+    } catch (err) {
+      console.warn('Toggle save sync error:', err);
+    }
   };
 
   const filteredTemplates = templates.filter((template) => {
@@ -430,7 +502,7 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={styles.editorBadge}>
-                  <Text style={styles.editorBadgeText}>EDITOR'S PICK</Text>
+                  <Text style={styles.editorBadgeText}>{"EDITOR'S PICK"}</Text>
                 </View>
               </View>
 

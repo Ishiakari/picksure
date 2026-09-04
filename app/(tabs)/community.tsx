@@ -8,6 +8,7 @@ import {
   StatusBar,
   Dimensions,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -62,7 +63,7 @@ const SUGGESTED_CREATORS: SuggestedCreator[] = [
 
 export default function CommunityScreen() {
   const { user } = useAuth();
-  const { templates, refreshing, refresh } = useTemplates();
+  const { templates, loading, refreshing, refresh, error, retry } = useTemplates();
   const [followedCreatorIds, setFollowedCreatorIds] = useState<Set<string>>(new Set());
 
   const toggleFollow = (creatorId: string) => {
@@ -98,10 +99,10 @@ export default function CommunityScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.headerSearchBtn}
+          style={styles.headerIconBtn}
           onPress={() => router.push('/(tabs)/explore')}
         >
-          <Feather name="search" size={18} color={Colors.textPrimary} />
+          <Feather name="compass" size={18} color={Colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -117,11 +118,11 @@ export default function CommunityScreen() {
           />
         }
       >
-        {/* Suggested Visionary Creators Row */}
-        <View style={styles.sectionContainer}>
+        {/* Suggested Creators Carousel */}
+        <View style={styles.creatorsSection}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Featured Creators</Text>
-            <Text style={styles.sectionSublabel}>Curated photographers</Text>
+            <Text style={styles.sectionTitle}>Featured Curators</Text>
+            <Text style={styles.sectionSubtitle}>Top community visionaries</Text>
           </View>
 
           <ScrollView
@@ -130,7 +131,7 @@ export default function CommunityScreen() {
             contentContainerStyle={styles.creatorsScroll}
           >
             {SUGGESTED_CREATORS.map((creator) => {
-              const isFollowed = followedCreatorIds.has(creator.id);
+              const isFollowing = followedCreatorIds.has(creator.id);
               return (
                 <View key={creator.id} style={styles.creatorCard}>
                   <Image
@@ -144,25 +145,27 @@ export default function CommunityScreen() {
                   <Text style={styles.creatorHandle} numberOfLines={1}>
                     {creator.handle}
                   </Text>
-                  <Text style={styles.creatorGuidesText}>
-                    {creator.guideCount} Guides
-                  </Text>
+
+                  <View style={styles.creatorGuidesBadge}>
+                    <Feather name="layers" size={10} color={Colors.textMuted} />
+                    <Text style={styles.creatorGuidesText}>{creator.guideCount} guides</Text>
+                  </View>
 
                   <TouchableOpacity
                     style={[
                       styles.followBtn,
-                      isFollowed && styles.followBtnActive,
+                      isFollowing && styles.followBtnActive,
                     ]}
                     onPress={() => toggleFollow(creator.id)}
-                    activeOpacity={0.85}
+                    activeOpacity={0.8}
                   >
                     <Text
                       style={[
                         styles.followBtnText,
-                        isFollowed && styles.followBtnTextActive,
+                        isFollowing && styles.followBtnTextActive,
                       ]}
                     >
-                      {isFollowed ? 'Following' : '+ Follow'}
+                      {isFollowing ? 'Following' : 'Follow'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -178,7 +181,24 @@ export default function CommunityScreen() {
             <Text style={styles.sectionCount}>{communityGuides.length} Guides</Text>
           </View>
 
-          {communityGuides.length === 0 ? (
+          {loading && !refreshing ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={Colors.primaryDark} />
+              <Text style={{ fontFamily: Fonts.medium, marginTop: 12, color: Colors.textMuted }}>
+                Loading community guides...
+              </Text>
+            </View>
+          ) : error ? (
+            <View style={styles.emptyContainer}>
+              <Feather name="alert-circle" size={32} color={Colors.primaryDark} />
+              <Text style={styles.emptyTitle}>Unable to Load Feed</Text>
+              <Text style={styles.emptySubtitle}>{error}</Text>
+              <TouchableOpacity style={styles.emptyActionBtn} onPress={retry} activeOpacity={0.85}>
+                <Feather name="refresh-cw" size={14} color={Colors.background} style={{ marginRight: 6 }} />
+                <Text style={styles.emptyActionBtnText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : communityGuides.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
                 <Feather name="users" size={32} color={Colors.primaryDark} />
@@ -283,7 +303,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  headerSearchBtn: {
+  headerIconBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -297,7 +317,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 4,
   },
-  sectionContainer: {
+  creatorsSection: {
     marginBottom: 24,
   },
   sectionHeaderRow: {
@@ -311,7 +331,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textPrimary,
   },
-  sectionSublabel: {
+  sectionSubtitle: {
     fontFamily: Fonts.medium,
     fontSize: 11,
     color: Colors.textMuted,
@@ -360,12 +380,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 1,
   },
+  creatorGuidesBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    marginBottom: 8,
+  },
   creatorGuidesText: {
     fontFamily: Fonts.medium,
     fontSize: 10,
     color: Colors.primaryDark,
-    marginTop: 4,
-    marginBottom: 8,
   },
   followBtn: {
     width: '100%',

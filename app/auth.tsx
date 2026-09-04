@@ -218,14 +218,7 @@ export default function AuthScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-              <View style={styles.fieldLabelRow}>
-                <Text style={styles.fieldLabel}>PASSWORD</Text>
-                {mode === 'signin' && (
-                  <TouchableOpacity>
-                    <Text style={styles.forgotText}>Forgot?</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <Text style={styles.fieldLabel}>PASSWORD</Text>
               <View style={styles.inputWrapper}>
                 <Feather
                   name="lock"
@@ -243,25 +236,6 @@ export default function AuthScreen() {
                 />
               </View>
             </View>
-
-            {/* Remember Me Checkbox */}
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => setRememberMe(!rememberMe)}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  rememberMe && styles.checkboxSelected,
-                ]}
-              >
-                {rememberMe && (
-                  <Feather name="check" size={12} color={Colors.background} />
-                )}
-              </View>
-              <Text style={styles.checkboxLabel}>Remember device</Text>
-            </TouchableOpacity>
 
             {/* Primary Submit Button */}
             <TouchableOpacity
@@ -304,16 +278,6 @@ export default function AuthScreen() {
             >
               <Ionicons name="logo-google" size={18} color={Colors.textPrimary} />
               <Text style={styles.socialButtonText}>Google</Text>
-            </TouchableOpacity>
-
-
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={handleGuest}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="logo-apple" size={18} color={Colors.textPrimary} />
-              <Text style={styles.socialButtonText}>Apple</Text>
             </TouchableOpacity>
           </View>
 

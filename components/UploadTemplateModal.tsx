@@ -85,16 +85,18 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
   // Guest auth bottom sheet gate
   const [showGuestGate, setShowGuestGate] = useState(false);
 
+  const getDraftKey = () => `picksure_guide_draft_${user?.id || 'guest'}`;
+
   // Load draft on mount / opening
   useEffect(() => {
     if (visible) {
       loadSavedDraft();
     }
-  }, [visible]);
+  }, [visible, user?.id]);
 
   const loadSavedDraft = async () => {
     try {
-      const saved = await AsyncStorage.getItem(DRAFT_STORAGE_KEY);
+      const saved = await AsyncStorage.getItem(getDraftKey());
       if (saved) {
         const draft = JSON.parse(saved);
         if (draft.title) setTitle(draft.title);
@@ -122,13 +124,26 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         aspectRatio,
         updatedAt: new Date().toISOString(),
       };
-      await AsyncStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftData));
+      await AsyncStorage.setItem(getDraftKey(), JSON.stringify(draftData));
     } catch (e) {
       console.warn("Error saving draft:", e);
     }
   };
 
+  const hasFormContent = () => {
+    return Boolean(
+      title.trim() ||
+      description.trim() ||
+      guideInstructions.trim() ||
+      selectedImageUri
+    );
+  };
+
   const handleSaveDraftAndExit = async () => {
+    if (!hasFormContent()) {
+      onClose();
+      return;
+    }
     await saveDraft();
     Alert.alert('Draft Saved ✨', 'Your guide progress has been saved locally.', [
       { text: 'OK', onPress: onClose }
@@ -137,7 +152,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 
   const clearDraft = async () => {
     try {
-      await AsyncStorage.removeItem(DRAFT_STORAGE_KEY);
+      await AsyncStorage.removeItem(getDraftKey());
     } catch (e) {
       console.warn("Error clearing draft:", e);
     }
@@ -161,6 +176,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 
     if (!result.canceled && result.assets[0]?.uri) {
       setSelectedImageUri(result.assets[0].uri);
+      setCurrentStep(2);
     }
   };
 
@@ -179,43 +195,44 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 
     if (!result.canceled && result.assets[0]?.uri) {
       setSelectedImageUri(result.assets[0].uri);
+      setCurrentStep(2);
     }
   };
 
   const handleNext = () => {
     if (currentStep === 1 && !selectedImageUri) {
-      Alert.alert('Image Required', 'Please select or capture a reference photo overlay.');
+      Alert.alert('Photo Required', 'Please select a reference photo first.');
       return;
     }
     if (currentStep === 3 && !title.trim()) {
-      Alert.alert('Title Required', 'Please enter a name for this composition guide.');
+      Alert.alert('Title Required', 'Please provide a title for your pose guide.');
       return;
     }
     if (currentStep < 5) {
-      setCurrentStep(currentStep + 1);
+      setCurrentStep(prev => prev + 1);
+    } else {
+      handleFinalPublish();
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep(prev => prev - 1);
     } else {
       handleSaveDraftAndExit();
     }
   };
 
-  const handlePublishClick = () => {
-    if (!user) {
-      // Gate guest before finalizing publish
-      setShowGuestGate(true);
-    } else {
-      executePublish(user.id);
+  const handleFinalPublish = async () => {
+    if (!selectedImageUri) {
+      Alert.alert('Photo Required', 'Please pick a reference photo to proceed.');
+      return;
     }
-  };
 
-  const executePublish = async (creatorId?: string | null) => {
-    if (!title.trim() || !selectedImageUri) {
-      Alert.alert('Missing Information', 'Please ensure your guide has an image and a title.');
+    const creatorId = user?.id || null;
+
+    if (!creatorId) {
+      setShowGuestGate(true);
       return;
     }
 
@@ -234,29 +251,31 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       setShowGuestGate(false);
 
       // 1. Upload to Supabase Storage
-      let publicUrl = selectedImageUri;
-      try {
-        const blob = await getBlobFromUri(selectedImageUri);
-        const arrayBuffer = await new Response(blob).arrayBuffer();
-        const fileExt = selectedImageUri.split('.').pop() || 'jpg';
-        const userId = creatorId || 'guest';
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `templates/${userId}/${fileName}`;
+      let publicUrl = '';
+      const blob = await getBlobFromUri(selectedImageUri);
+      const arrayBuffer = await new Response(blob).arrayBuffer();
+      const fileExt = selectedImageUri.split('.').pop() || 'jpg';
+      const userId = creatorId || 'guest';
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `templates/${userId}/${fileName}`;
 
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from('template-overlays')
-          .upload(filePath, arrayBuffer, {
-            contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
-            upsert: true,
-          });
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('template-overlays')
+        .upload(filePath, arrayBuffer, {
+          contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
+          upsert: true,
+        });
 
-        if (storageData?.path) {
-          publicUrl = supabase.storage.from('template-overlays').getPublicUrl(storageData.path).data.publicUrl;
-        } else if (storageError) {
-          console.warn("Storage upload note:", storageError.message);
-        }
-      } catch (err) {
-        console.warn("Storage upload fallback:", err);
+      if (storageError) {
+        throw new Error(`Storage upload failed: ${storageError.message}`);
+      }
+
+      if (storageData?.path) {
+        publicUrl = supabase.storage.from('template-overlays').getPublicUrl(storageData.path).data.publicUrl;
+      }
+
+      if (!publicUrl) {
+        throw new Error('Failed to obtain public URL for uploaded photo.');
       }
 
       // 2. Insert into Supabase table
@@ -269,28 +288,34 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         creator_id: creatorId || null,
         difficulty,
         time_setup: '2 min',
+        ratio: aspectRatio,
       };
 
       let insertedRow: any = null;
-      try {
-        let insertResult = await supabase.from('templates').insert([insertPayload]).select();
-        let dbError = insertResult.error;
-        insertedRow = insertResult.data?.[0];
+      let insertResult = await supabase.from('templates').insert([insertPayload]).select();
+      let dbError = insertResult.error;
+      insertedRow = insertResult.data?.[0];
 
-        if (dbError && (dbError.message.includes("violates foreign key constraint") || dbError.code === '23503')) {
-          const fallbackResult = await supabase.from('templates').insert([{
-            ...insertPayload,
-            creator_id: null,
-          }]).select();
-          insertedRow = fallbackResult.data?.[0];
+      if (dbError && (dbError.message.includes("violates foreign key constraint") || dbError.code === '23503')) {
+        const fallbackResult = await supabase.from('templates').insert([{
+          ...insertPayload,
+          creator_id: null,
+        }]).select();
+        if (fallbackResult.error) {
+          throw new Error(`Database insert failed: ${fallbackResult.error.message}`);
         }
-      } catch (dbErr) {
-        console.warn("Database insert warning:", dbErr);
+        insertedRow = fallbackResult.data?.[0];
+      } else if (dbError) {
+        throw new Error(`Database insert failed: ${dbError.message}`);
+      }
+
+      if (!insertedRow) {
+        throw new Error('Database insert did not return created row.');
       }
 
       // 3. Create local template object for feed rendering
       const newTemplateObj: Template & { creator_id?: string } = {
-        id: insertedRow?.id || `custom-${Date.now()}`,
+        id: insertedRow.id,
         title: title.trim(),
         category,
         description: trimmedDescription || 'Custom community composition guide.',
@@ -344,9 +369,9 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       transparent={true}
       onRequestClose={handleSaveDraftAndExit}
     >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-        style={styles.overlay}
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <SafeAreaView style={styles.modalContent} edges={['bottom']}>
           {/* Top Sheet Drag & Header */}
@@ -355,7 +380,12 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
           </View>
 
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBack}
+              accessibilityRole="button"
+              accessibilityLabel={currentStep === 1 ? 'Close and save draft' : 'Previous step'}
+            >
               <Feather name={currentStep === 1 ? 'x' : 'arrow-left'} size={18} color={Colors.textPrimary} />
             </TouchableOpacity>
 
@@ -632,7 +662,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
               <TouchableOpacity 
                 style={[styles.primaryCTA, uploading && styles.primaryCTADisabled]} 
                 activeOpacity={0.88} 
-                onPress={handlePublishClick}
+                onPress={handleFinalPublish}
                 disabled={uploading}
               >
                 {uploading ? (
@@ -673,14 +703,6 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
                 </TouchableOpacity>
 
                 <TouchableOpacity 
-                  style={styles.guestAuthBtnSecondary}
-                  activeOpacity={0.8}
-                  onPress={() => executePublish(null)}
-                >
-                  <Text style={styles.guestAuthBtnSecondaryText}>Continue as Guest</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
                   style={styles.guestCancelBtn}
                   onPress={() => setShowGuestGate(false)}
                 >
@@ -696,7 +718,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(26, 24, 23, 0.65)',
     justifyContent: 'flex-end',
