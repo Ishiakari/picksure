@@ -8,6 +8,68 @@ export interface PaginatedTemplatesResult {
   hasMore: boolean;
 }
 
+export interface ParsedTipsResult {
+  tips: string[];
+  cleanDescription: string;
+}
+
+export function parseTips(
+  rawTips: unknown,
+  rawDescription?: string | null
+): ParsedTipsResult {
+  let tipsArray: string[] = [];
+
+  if (Array.isArray(rawTips) && rawTips.length > 0) {
+    tipsArray = rawTips
+      .map((t) => (t !== null && t !== undefined ? String(t).trim() : ''))
+      .filter((t) => t.length > 0);
+  } else if (typeof rawTips === 'string') {
+    const trimmed = rawTips.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          tipsArray = parsed
+            .map((t) => (t !== null && t !== undefined ? String(t).trim() : ''))
+            .filter((t) => t.length > 0);
+        }
+      } catch {
+        tipsArray = [];
+      }
+    } else if (trimmed.includes('\n')) {
+      tipsArray = trimmed
+        .split('\n')
+        .map((t) => t.replace(/^[•\-\*]\s*/, '').trim())
+        .filter((t) => t.length > 0);
+    } else if (trimmed.length > 0) {
+      tipsArray = [trimmed];
+    }
+  }
+
+  let cleanDesc = (rawDescription || '').trim();
+
+  // Backward-compatibility check for legacy text blobs
+  if (tipsArray.length === 0 && cleanDesc.includes("DIRECTOR'S GUIDE:")) {
+    const parts = cleanDesc.split("DIRECTOR'S GUIDE:");
+    cleanDesc = parts[0].trim();
+    if (parts[1]) {
+      tipsArray = parts[1]
+        .split('\n')
+        .map((t: string) => t.replace(/^[•\-\*]\s*/, '').trim())
+        .filter((t: string) => t.length > 0);
+    }
+  }
+
+  if (tipsArray.length === 0 && cleanDesc.length > 0) {
+    tipsArray = [cleanDesc];
+  }
+
+  return {
+    tips: tipsArray,
+    cleanDescription: cleanDesc,
+  };
+}
+
 export const templateService = {
   async getTemplates(page = 0, limit = 10): Promise<PaginatedTemplatesResult> {
     try {
@@ -33,35 +95,7 @@ export const templateService = {
       }
 
       const remoteTemplates: Template[] = data.map((item) => {
-        let tipsArray: string[] = [];
-
-        // Parse tips: native Array, JSON string, or legacy delimiter
-        if (Array.isArray(item.tips) && item.tips.length > 0) {
-          tipsArray = item.tips;
-        } else if (typeof item.tips === 'string' && item.tips.trim().startsWith('[')) {
-          try {
-            const parsed = JSON.parse(item.tips);
-            if (Array.isArray(parsed)) tipsArray = parsed;
-          } catch {
-            tipsArray = [];
-          }
-        }
-
-        let cleanDesc = item.description || '';
-
-        // Backward-compatibility check for legacy text blobs
-        if (tipsArray.length === 0 && cleanDesc.includes("DIRECTOR'S GUIDE:")) {
-          const parts = cleanDesc.split("DIRECTOR'S GUIDE:");
-          cleanDesc = parts[0].trim();
-          tipsArray = parts[1]
-            .split('\n')
-            .map((t: string) => t.replace(/^[•\-\*]\s*/, '').trim())
-            .filter((t: string) => t.length > 0);
-        }
-
-        if (tipsArray.length === 0 && cleanDesc.length > 0) {
-          tipsArray = [cleanDesc];
-        }
+        const { tips: tipsArray, cleanDescription: cleanDesc } = parseTips(item.tips, item.description);
 
         return {
           id: item.id,
@@ -75,7 +109,7 @@ export const templateService = {
           tips: tipsArray,
           usedCount: item.used_count !== undefined && item.used_count !== null ? String(item.used_count) : '0',
           savedCount: item.saved_count !== undefined && item.saved_count !== null ? String(item.saved_count) : '0',
-          creator_id: item.creator_id,
+          creator_id: item.creator_id || undefined,
         };
       });
 

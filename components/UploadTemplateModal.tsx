@@ -1,39 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  Modal, 
-  TextInput,
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
   ActivityIndicator,
   Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Colors, Fonts } from '@/constants/theme';
 import { addCustomTemplateToFeed } from '@/hooks/useTemplates';
 import { Template } from '@/src/data/templates';
 import { CATEGORIES, CategoryType } from '@/src/constants/categories';
+import { detectBestRatio, TemplateAspectRatio } from '@/utils/detectBestRatio';
+import { uploadTemplateImage, createTemplateRecord } from '@/services/uploadService';
 
-const { width } = Dimensions.get('window');
-const UPLOAD_CATEGORIES = CATEGORIES;
-
-const DIFFICULTIES: Array<'Beginner' | 'Intermediate' | 'Advanced'> = [
-  'Beginner',
-  'Intermediate',
-  'Advanced'
-];
+import StepImagePicker from './upload/StepImagePicker';
+import StepCropRatio from './upload/StepCropRatio';
+import StepCategoryDetails, { DifficultyLevel } from './upload/StepCategoryDetails';
+import StepDirectorTips from './upload/StepDirectorTips';
+import StepReview from './upload/StepReview';
+import GuestGateModal from './upload/GuestGateModal';
 
 const STEPS = [
   { id: 1, title: 'Select Image' },
@@ -43,58 +39,38 @@ const STEPS = [
   { id: 5, title: 'Review & Publish' },
 ];
 
-const DRAFT_STORAGE_KEY = 'picksure_guide_draft_data';
-
-const getBlobFromUri = async (uri: string): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.onload = function () {
-      resolve(xhr.response);
-    };
-    xhr.onerror = function () {
-      reject(new TypeError("Local file read request failed"));
-    };
-    xhr.responseType = "blob";
-    xhr.open("GET", uri, true);
-    xhr.send(null);
-  });
-};
-
 interface UploadTemplateModalProps {
   visible: boolean;
   onClose: () => void;
   onUploadSuccess: () => void;
 }
 
-export default function UploadTemplateModal({ visible, onClose, onUploadSuccess }: UploadTemplateModalProps) {
+export default function UploadTemplateModal({
+  visible,
+  onClose,
+  onUploadSuccess,
+}: UploadTemplateModalProps) {
   const { user } = useAuth();
-  
-  // Step state
+
+  // Wizard Step State
   const [currentStep, setCurrentStep] = useState<number>(1);
-  
-  // Form state
+
+  // Form State
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<CategoryType>(UPLOAD_CATEGORIES[0]);
-  const [difficulty, setDifficulty] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Beginner');
+  const [category, setCategory] = useState<CategoryType>(CATEGORIES[0]);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>('Beginner');
   const [description, setDescription] = useState('');
   const [guideInstructions, setGuideInstructions] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<'3:4 RATIO' | '4:5 RATIO' | '1:1 RATIO' | '9:16 RATIO'>('3:4 RATIO');
+  const [aspectRatio, setAspectRatio] = useState<TemplateAspectRatio>('3:4 RATIO');
   const [uploading, setUploading] = useState(false);
 
-  // Guest auth bottom sheet gate
+  // Guest Auth Gate
   const [showGuestGate, setShowGuestGate] = useState(false);
 
-  const getDraftKey = () => `picksure_guide_draft_${user?.id || 'guest'}`;
+  const getDraftKey = useCallback(() => `picksure_guide_draft_${user?.id || 'guest'}`, [user?.id]);
 
-  // Load draft on mount / opening
-  useEffect(() => {
-    if (visible) {
-      loadSavedDraft();
-    }
-  }, [visible, user?.id]);
-
-  const loadSavedDraft = async () => {
+  const loadSavedDraft = useCallback(async () => {
     try {
       const saved = await AsyncStorage.getItem(getDraftKey());
       if (saved) {
@@ -108,9 +84,15 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         if (draft.aspectRatio) setAspectRatio(draft.aspectRatio);
       }
     } catch (e) {
-      console.warn("Error loading draft:", e);
+      console.warn('Error loading draft:', e);
     }
-  };
+  }, [getDraftKey]);
+
+  useEffect(() => {
+    if (visible) {
+      loadSavedDraft();
+    }
+  }, [visible, loadSavedDraft]);
 
   const saveDraft = async () => {
     try {
@@ -126,7 +108,15 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       };
       await AsyncStorage.setItem(getDraftKey(), JSON.stringify(draftData));
     } catch (e) {
-      console.warn("Error saving draft:", e);
+      console.warn('Error saving draft:', e);
+    }
+  };
+
+  const clearDraft = async () => {
+    try {
+      await AsyncStorage.removeItem(getDraftKey());
+    } catch (e) {
+      console.warn('Error clearing draft:', e);
     }
   };
 
@@ -146,40 +136,8 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
     }
     await saveDraft();
     Alert.alert('Draft Saved ✨', 'Your guide progress has been saved locally.', [
-      { text: 'OK', onPress: onClose }
+      { text: 'OK', onPress: onClose },
     ]);
-  };
-
-  const clearDraft = async () => {
-    try {
-      await AsyncStorage.removeItem(getDraftKey());
-    } catch (e) {
-      console.warn("Error clearing draft:", e);
-    }
-  };
-
-  if (!visible) return null;
-
-  const detectBestRatio = (w: number, h: number): '3:4 RATIO' | '4:5 RATIO' | '1:1 RATIO' | '9:16 RATIO' => {
-    const r = w / h;
-    const candidates: Array<{ ratio: '3:4 RATIO' | '4:5 RATIO' | '1:1 RATIO' | '9:16 RATIO'; value: number }> = [
-      { ratio: '1:1 RATIO', value: 1.0 },
-      { ratio: '4:5 RATIO', value: 0.8 }, // 4/5
-      { ratio: '3:4 RATIO', value: 0.75 }, // 3/4
-      { ratio: '9:16 RATIO', value: 9 / 16 }, // 0.5625
-    ];
-
-    let best = candidates[0];
-    let minDiff = Math.abs(r - candidates[0].value);
-
-    for (let i = 1; i < candidates.length; i++) {
-      const diff = Math.abs(r - candidates[i].value);
-      if (diff < minDiff) {
-        minDiff = diff;
-        best = candidates[i];
-      }
-    }
-    return best.ratio;
   };
 
   const pickImageFromGallery = async () => {
@@ -198,8 +156,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
     if (!result.canceled && result.assets[0]?.uri) {
       const asset = result.assets[0];
       setSelectedImageUri(asset.uri);
-      
-      // Auto-detect native aspect ratio by evaluating closest distance
+
       if (asset.width && asset.height) {
         setAspectRatio(detectBestRatio(asset.width, asset.height));
       }
@@ -240,7 +197,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       return;
     }
     if (currentStep < 5) {
-      setCurrentStep(prev => prev + 1);
+      setCurrentStep((prev) => prev + 1);
     } else {
       handleFinalPublish();
     }
@@ -248,7 +205,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep((prev) => prev - 1);
     } else {
       handleSaveDraftAndExit();
     }
@@ -269,80 +226,36 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 
     const parsedTips = guideInstructions
       .split('\n')
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
 
     const trimmedDescription = description.trim();
-    const tipsList = parsedTips.length > 0 
-      ? parsedTips 
-      : (trimmedDescription.length > 0 ? [trimmedDescription] : ['Align pose overlay with subject.']);
+    const tipsList =
+      parsedTips.length > 0
+        ? parsedTips
+        : trimmedDescription.length > 0
+        ? [trimmedDescription]
+        : ['Align pose overlay with subject.'];
 
     try {
       setUploading(true);
       setShowGuestGate(false);
 
-      // 1. Upload to Supabase Storage
-      let publicUrl = '';
-      const blob = await getBlobFromUri(selectedImageUri);
-      const arrayBuffer = await new Response(blob).arrayBuffer();
-      const fileExt = selectedImageUri.split('.').pop() || 'jpg';
-      const userId = creatorId || 'guest';
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `templates/${userId}/${fileName}`;
+      // 1. Upload to Supabase Storage via service
+      const publicUrl = await uploadTemplateImage(selectedImageUri, creatorId);
 
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from('template-overlays')
-        .upload(filePath, arrayBuffer, {
-          contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
-          upsert: true,
-        });
-
-      if (storageError) {
-        throw new Error(`Storage upload failed: ${storageError.message}`);
-      }
-
-      if (storageData?.path) {
-        publicUrl = supabase.storage.from('template-overlays').getPublicUrl(storageData.path).data.publicUrl;
-      }
-
-      if (!publicUrl) {
-        throw new Error('Failed to obtain public URL for uploaded photo.');
-      }
-
-      // 2. Insert into Supabase table
-      const insertPayload = {
+      // 2. Insert record via service
+      const insertedRow = await createTemplateRecord({
         title: title.trim(),
         category,
         description: trimmedDescription || 'Custom community composition guide.',
         tips: tipsList,
-        image_url: publicUrl,
-        creator_id: creatorId || null,
+        imageUrl: publicUrl,
+        creatorId,
         difficulty,
-        time_setup: '2 min',
+        timeSetup: '2 min',
         ratio: aspectRatio,
-      };
-
-      let insertedRow: any = null;
-      let insertResult = await supabase.from('templates').insert([insertPayload]).select();
-      let dbError = insertResult.error;
-      insertedRow = insertResult.data?.[0];
-
-      if (dbError && (dbError.message.includes("violates foreign key constraint") || dbError.code === '23503')) {
-        const fallbackResult = await supabase.from('templates').insert([{
-          ...insertPayload,
-          creator_id: null,
-        }]).select();
-        if (fallbackResult.error) {
-          throw new Error(`Database insert failed: ${fallbackResult.error.message}`);
-        }
-        insertedRow = fallbackResult.data?.[0];
-      } else if (dbError) {
-        throw new Error(`Database insert failed: ${dbError.message}`);
-      }
-
-      if (!insertedRow) {
-        throw new Error('Database insert did not return created row.');
-      }
+      });
 
       // 3. Create local template object for feed rendering
       const newTemplateObj: Template & { creator_id?: string } = {
@@ -360,7 +273,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
         creator_id: creatorId || undefined,
       };
 
-      // 4. Save to user uploads
+      // 4. Save to user uploads locally
       try {
         const userKey = creatorId || 'guest';
         await AsyncStorage.setItem(`my_upload_${userKey}_${newTemplateObj.id}`, 'true');
@@ -373,10 +286,10 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       await clearDraft();
 
       Alert.alert('Published ✨', 'Your custom pose guide has been created and synced to the studio feed!');
-      
+
       // Reset state
       setTitle('');
-      setCategory(UPLOAD_CATEGORIES[0]);
+      setCategory(CATEGORIES[0]);
       setDifficulty('Beginner');
       setDescription('');
       setGuideInstructions('');
@@ -386,12 +299,14 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
       onUploadSuccess();
       onClose();
     } catch (err: any) {
-      console.error("Upload failed:", err);
+      console.error('Upload failed:', err);
       Alert.alert('Publish Failed', err?.message || 'Failed to publish guide.');
     } finally {
       setUploading(false);
     }
   };
+
+  if (!visible) return null;
 
   return (
     <Modal
@@ -417,12 +332,18 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
               accessibilityRole="button"
               accessibilityLabel={currentStep === 1 ? 'Close and save draft' : 'Previous step'}
             >
-              <Feather name={currentStep === 1 ? 'x' : 'arrow-left'} size={18} color={Colors.textPrimary} />
+              <Feather
+                name={currentStep === 1 ? 'x' : 'arrow-left'}
+                size={18}
+                color={Colors.textPrimary}
+              />
             </TouchableOpacity>
 
             <View style={styles.headerTitleContainer}>
               <Text style={styles.modalTitle}>{STEPS[currentStep - 1].title}</Text>
-              <Text style={styles.stepIndicatorText}>Step {currentStep} of {STEPS.length}</Text>
+              <Text style={styles.stepIndicatorText}>
+                Step {currentStep} of {STEPS.length}
+              </Text>
             </View>
 
             <TouchableOpacity style={styles.draftButton} onPress={handleSaveDraftAndExit}>
@@ -436,249 +357,68 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
               const isCompleted = step.id < currentStep;
               const isActive = step.id === currentStep;
               return (
-                <View 
-                  key={step.id} 
+                <View
+                  key={step.id}
                   style={[
                     styles.stepDot,
                     isActive && styles.stepDotActive,
                     isCompleted && styles.stepDotCompleted,
-                  ]} 
+                  ]}
                 />
               );
             })}
           </View>
 
           {/* Step Content */}
-          <ScrollView 
-            showsVerticalScrollIndicator={false} 
+          <ScrollView
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            {/* STEP 1: Select Image */}
             {currentStep === 1 && (
-              <View style={styles.stepContainer}>
-                <Text style={styles.stepSubtitle}>
-                  Choose a reference photo overlay from your library or take a fresh shot with your camera.
-                </Text>
-
-                {selectedImageUri ? (
-                  <View style={styles.imagePreviewContainer}>
-                    <Image source={{ uri: selectedImageUri }} style={styles.selectedImagePreview} contentFit="cover" />
-                    <View style={styles.imageChangeOverlay}>
-                      <TouchableOpacity style={styles.changeImageBtn} onPress={pickImageFromGallery}>
-                        <Feather name="refresh-cw" size={13} color={Colors.background} />
-                        <Text style={styles.changeImageText}>Change</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.pickerCardsRow}>
-                    <TouchableOpacity style={styles.pickerCard} activeOpacity={0.85} onPress={pickImageFromGallery}>
-                      <View style={styles.pickerIconCircle}>
-                        <Feather name="image" size={24} color={Colors.primaryDark} />
-                      </View>
-                      <Text style={styles.pickerCardTitle}>Photo Library</Text>
-                      <Text style={styles.pickerCardSubtitle}>Select existing photo</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.pickerCard} activeOpacity={0.85} onPress={capturePhotoFromCamera}>
-                      <View style={styles.pickerIconCircle}>
-                        <Feather name="camera" size={24} color={Colors.primaryDark} />
-                      </View>
-                      <Text style={styles.pickerCardTitle}>Take Photo</Text>
-                      <Text style={styles.pickerCardSubtitle}>Capture in real-time</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
+              <StepImagePicker
+                selectedImageUri={selectedImageUri}
+                onPickFromGallery={pickImageFromGallery}
+                onCaptureFromCamera={capturePhotoFromCamera}
+              />
             )}
 
-            {/* STEP 2: Outline & Crop */}
             {currentStep === 2 && (
-              <View style={styles.stepContainer}>
-                <Text style={styles.stepSubtitle}>
-                  Frame the subject aspect ratio and enable real-time ghost overlay trace.
-                </Text>
-
-                <View style={styles.outlinePreviewWrapper}>
-                  {selectedImageUri && (
-                    <Image source={{ uri: selectedImageUri }} style={styles.outlineImage} contentFit="cover" />
-                  )}
-                  <View style={styles.outlineOverlayMask}>
-                    <View style={styles.outlineFrameBorder} />
-                    <View style={styles.outlineBadge}>
-                      <Ionicons name="scan-outline" size={13} color={Colors.primarySoft} />
-                      <Text style={styles.outlineBadgeText}>Ghost Frame Enabled</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Aspect Ratio Selector */}
-                <Text style={styles.fieldLabel}>ASPECT RATIO</Text>
-                <View style={styles.aspectRatioRow}>
-                  {(['3:4 RATIO', '4:5 RATIO', '1:1 RATIO', '9:16 RATIO'] as const).map((ratio) => (
-                    <TouchableOpacity
-                      key={ratio}
-                      style={[
-                        styles.ratioPill,
-                        aspectRatio === ratio && styles.ratioPillActive,
-                      ]}
-                      onPress={() => setAspectRatio(ratio)}
-                    >
-                      <Text style={[styles.ratioPillText, aspectRatio === ratio && styles.ratioPillTextActive]}>
-                        {ratio}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+              <StepCropRatio
+                selectedImageUri={selectedImageUri}
+                aspectRatio={aspectRatio}
+                onSelectAspectRatio={setAspectRatio}
+              />
             )}
 
-            {/* STEP 3: Set Category & Title */}
             {currentStep === 3 && (
-              <View style={styles.stepContainer}>
-                <Text style={styles.stepSubtitle}>
-                  Give your composition guide a title and assign it to a curated lifestyle category.
-                </Text>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>GUIDE TITLE</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Vintage Sunset Stance"
-                    placeholderTextColor={Colors.textMuted}
-                    value={title}
-                    onChangeText={setTitle}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>CATEGORY</Text>
-                  <View style={styles.categoryChipsGrid}>
-                    {UPLOAD_CATEGORIES.map((cat) => {
-                      const isSelected = category === cat;
-                      return (
-                        <TouchableOpacity
-                          key={cat}
-                          style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                          onPress={() => setCategory(cat)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
-                            {cat}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>DIFFICULTY LEVEL</Text>
-                  <View style={styles.difficultyContainer}>
-                    {DIFFICULTIES.map((diff) => (
-                      <TouchableOpacity
-                        key={diff}
-                        style={[styles.difficultyButton, difficulty === diff && styles.activeDifficultyButton]}
-                        onPress={() => setDifficulty(diff)}
-                      >
-                        <Text style={[styles.difficultyText, difficulty === diff && styles.activeDifficultyText]}>
-                          {diff}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              </View>
+              <StepCategoryDetails
+                title={title}
+                onChangeTitle={setTitle}
+                category={category}
+                onChangeCategory={setCategory}
+                difficulty={difficulty}
+                onChangeDifficulty={setDifficulty}
+              />
             )}
 
-            {/* STEP 4: Director Tips */}
             {currentStep === 4 && (
-              <View style={styles.stepContainer}>
-                <Text style={styles.stepSubtitle}>
-                  Provide concise camera direction notes (framing, angles, lighting) for creators following this guide.
-                </Text>
-
-                <View style={styles.fieldGroup}>
-                  <View style={styles.labelRowWithCount}>
-                    <Text style={styles.fieldLabel}>DIRECTOR SHOOTING TIPS</Text>
-                    <Text style={styles.charCountText}>{guideInstructions.length}/300</Text>
-                  </View>
-                  <TextInput 
-                    style={[styles.input, styles.textAreaLarge]}
-                    placeholder={"• Position camera at hip level\n• Let natural window light illuminate face\n• Relax shoulders at 45° angle"}
-                    placeholderTextColor={Colors.textMuted}
-                    value={guideInstructions}
-                    onChangeText={(t) => setGuideInstructions(t.slice(0, 300))}
-                    multiline
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <View style={styles.labelRowWithCount}>
-                    <Text style={styles.fieldLabel}>AESTHETIC DESCRIPTION</Text>
-                    <Text style={styles.charCountText}>{description.length}/150</Text>
-                  </View>
-                  <TextInput 
-                    style={[styles.input, styles.textAreaSmall]}
-                    placeholder="Short summary of the vibe and mood..."
-                    placeholderTextColor={Colors.textMuted}
-                    value={description}
-                    onChangeText={(t) => setDescription(t.slice(0, 150))}
-                    multiline
-                  />
-                </View>
-              </View>
+              <StepDirectorTips
+                guideInstructions={guideInstructions}
+                onChangeGuideInstructions={setGuideInstructions}
+                description={description}
+                onChangeDescription={setDescription}
+              />
             )}
 
-            {/* STEP 5: Live Feed Card Review */}
             {currentStep === 5 && (
-              <View style={styles.stepContainer}>
-                <Text style={styles.stepSubtitle}>
-                  Here is how your custom guide will appear to curators on the PickSure feed.
-                </Text>
-
-                <View style={styles.previewCardContainer}>
-                  <View style={styles.mockFeedCard}>
-                    <View style={styles.mockImageContainer}>
-                      {selectedImageUri && (
-                        <Image source={{ uri: selectedImageUri }} style={styles.mockImage} contentFit="cover" />
-                      )}
-                      <View style={styles.mockCardScrim} />
-                      
-                      {/* Top-Left Category Badge */}
-                      <View style={styles.mockCategoryBadge}>
-                        <Text style={styles.mockCategoryText}>{category}</Text>
-                      </View>
-
-                      {/* Top-Right Ratio Badge */}
-                      <View style={styles.mockRatioBadge}>
-                        <Text style={styles.mockRatioText}>{aspectRatio}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.mockCardBody}>
-                      <Text style={styles.mockCardTitle} numberOfLines={1}>{title || 'Untitled Pose'}</Text>
-                      <Text style={styles.mockCardDesc} numberOfLines={2}>
-                        {description || 'Effortless composition guide with real-time HUD alignment.'}
-                      </Text>
-
-                      <View style={styles.mockCardFooter}>
-                        <View style={styles.mockStats}>
-                          <View style={styles.mockStatItem}>
-                            <Feather name="clock" size={11} color={Colors.textMuted} />
-                            <Text style={styles.mockStatText}>2 min</Text>
-                          </View>
-                        </View>
-
-                        <View style={styles.mockBookmark}>
-                          <Ionicons name="bookmark-outline" size={14} color={Colors.textSecondary} />
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
+              <StepReview
+                selectedImageUri={selectedImageUri}
+                category={category}
+                aspectRatio={aspectRatio}
+                title={title}
+                description={description}
+              />
             )}
           </ScrollView>
 
@@ -690,9 +430,9 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
                 <Feather name="arrow-right" size={16} color={Colors.background} style={{ marginLeft: 6 }} />
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity 
-                style={[styles.primaryCTA, uploading && styles.primaryCTADisabled]} 
-                activeOpacity={0.88} 
+              <TouchableOpacity
+                style={[styles.primaryCTA, uploading && styles.primaryCTADisabled]}
+                activeOpacity={0.88}
                 onPress={handleFinalPublish}
                 disabled={uploading}
               >
@@ -709,39 +449,16 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
           </View>
 
           {/* Guest Sign-In Bottom Sheet Gating */}
-          {showGuestGate && (
-            <View style={styles.guestGateOverlay}>
-              <View style={styles.guestGateSheet}>
-                <View style={styles.guestIconBadge}>
-                  <Feather name="user" size={28} color={Colors.primaryDark} />
-                </View>
-                <Text style={styles.guestGateTitle}>Sign In to Publish</Text>
-                <Text style={styles.guestGateSubtitle}>
-                  Create your free studio profile to attribute this guide, sync saved overlays, and build your creator portfolio.
-                </Text>
-
-                <TouchableOpacity 
-                  style={styles.guestAuthBtnPrimary}
-                  activeOpacity={0.88}
-                  onPress={async () => {
-                    await saveDraft();
-                    setShowGuestGate(false);
-                    onClose();
-                    router.push('/auth');
-                  }}
-                >
-                  <Text style={styles.guestAuthBtnPrimaryText}>Sign In / Create Account</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.guestCancelBtn}
-                  onPress={() => setShowGuestGate(false)}
-                >
-                  <Text style={styles.guestCancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
+          <GuestGateModal
+            visible={showGuestGate}
+            onSignIn={async () => {
+              await saveDraft();
+              setShowGuestGate(false);
+              onClose();
+              router.push('/auth');
+            }}
+            onCancel={() => setShowGuestGate(false)}
+          />
         </SafeAreaView>
       </KeyboardAvoidingView>
     </Modal>
@@ -807,489 +524,65 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   draftButton: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   draftButtonText: {
     fontFamily: Fonts.semiBold,
-    fontSize: 12,
-    color: Colors.primaryDark,
+    fontSize: 11,
+    color: Colors.textSecondary,
   },
   stepDotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 6,
-    marginVertical: 12,
+    paddingVertical: 12,
   },
   stepDot: {
-    width: 24,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.surfaceAlt,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.border,
   },
   stepDotActive: {
+    width: 24,
     backgroundColor: Colors.primaryDark,
-    width: 32,
   },
   stepDotCompleted: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: Colors.primary,
   },
   scrollContent: {
-    paddingVertical: 10,
-    paddingBottom: 24,
-  },
-  stepContainer: {
-    gap: 16,
-  },
-  stepSubtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-  pickerCardsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  pickerCard: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  pickerIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: Colors.primarySoft,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  pickerCardTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 14,
-    color: Colors.textPrimary,
-  },
-  pickerCardSubtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 11,
-    color: Colors.textMuted,
-  },
-  imagePreviewContainer: {
-    width: '100%',
-    height: 280,
-    borderRadius: 20,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginTop: 4,
-  },
-  selectedImagePreview: {
-    width: '100%',
-    height: '100%',
-  },
-  imageChangeOverlay: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-  },
-  changeImageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primaryDark,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    gap: 5,
-  },
-  changeImageText: {
-    fontFamily: Fonts.bold,
-    fontSize: 11,
-    color: Colors.background,
-  },
-  outlinePreviewWrapper: {
-    width: '100%',
-    height: 240,
-    borderRadius: 20,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  outlineImage: {
-    width: '100%',
-    height: '100%',
-  },
-  outlineOverlayMask: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26, 24, 23, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  outlineFrameBorder: {
-    width: '80%',
-    height: '80%',
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: Colors.background,
-    borderRadius: 14,
-  },
-  outlineBadge: {
-    position: 'absolute',
-    bottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(50, 48, 43, 0.85)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    gap: 5,
-  },
-  outlineBadgeText: {
-    fontFamily: Fonts.bold,
-    fontSize: 10,
-    color: Colors.textLight,
-  },
-  aspectRatioRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  ratioPill: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-  },
-  ratioPillActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryDark,
-  },
-  ratioPillText: {
-    fontFamily: Fonts.bold,
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  ratioPillTextActive: {
-    color: Colors.background,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
-  fieldLabel: {
-    fontFamily: Fonts.bold,
-    fontSize: 11,
-    color: Colors.textSecondary,
-    letterSpacing: 0.6,
-  },
-  labelRowWithCount: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  charCountText: {
-    fontFamily: Fonts.medium,
-    fontSize: 10,
-    color: Colors.textMuted,
-  },
-  input: {
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 16,
     paddingVertical: 12,
-    fontFamily: Fonts.regular,
-    color: Colors.textPrimary,
-    fontSize: 14,
-  },
-  textAreaLarge: {
-    height: 100,
-    textAlignVertical: 'top',
-    lineHeight: 20,
-  },
-  textAreaSmall: {
-    height: 70,
-    textAlignVertical: 'top',
-  },
-  categoryChipsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  categoryChipActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryDark,
-  },
-  categoryChipText: {
-    fontFamily: Fonts.semiBold,
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  categoryChipTextActive: {
-    color: Colors.background,
-  },
-  difficultyContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  difficultyButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  activeDifficultyButton: {
-    backgroundColor: Colors.primaryDark,
-  },
-  difficultyText: {
-    fontFamily: Fonts.bold,
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  activeDifficultyText: {
-    color: Colors.background,
-  },
-  previewCardContainer: {
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  mockFeedCard: {
-    width: (width - 60) / 1.4,
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  mockImageContainer: {
-    width: '100%',
-    height: 150,
-    position: 'relative',
-  },
-  mockImage: {
-    width: '100%',
-    height: '100%',
-  },
-  mockCardScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(29, 28, 22, 0.15)',
-  },
-  mockCategoryBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(254, 249, 240, 0.92)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  mockCategoryText: {
-    fontFamily: Fonts.bold,
-    fontSize: 9,
-    color: Colors.textPrimary,
-  },
-  mockRatioBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(50, 48, 43, 0.75)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  mockRatioText: {
-    fontFamily: Fonts.medium,
-    fontSize: 8,
-    color: Colors.textLight,
-  },
-  mockCardBody: {
-    padding: 10,
-  },
-  mockCardTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    marginBottom: 3,
-  },
-  mockCardDesc: {
-    fontFamily: Fonts.regular,
-    fontSize: 11,
-    color: Colors.textSecondary,
-    lineHeight: 15,
-    marginBottom: 8,
-  },
-  mockCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 8,
-  },
-  mockStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  mockStatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  mockStatText: {
-    fontFamily: Fonts.medium,
-    fontSize: 10,
-    color: Colors.textMuted,
-  },
-  mockBookmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.surfaceAlt,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   footerCTAContainer: {
-    paddingTop: 12,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
   primaryCTA: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: Colors.primaryDark,
-    borderRadius: 14,
-    height: 50,
+    paddingVertical: 15,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 3,
   },
   primaryCTADisabled: {
-    opacity: 0.6,
+    opacity: 0.7,
   },
   primaryCTAText: {
     fontFamily: Fonts.bold,
+    fontSize: 15,
     color: Colors.background,
-    fontSize: 14,
-  },
-  guestGateOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26, 24, 23, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    borderRadius: 28,
-  },
-  guestGateSheet: {
-    backgroundColor: Colors.background,
-    borderRadius: 24,
-    padding: 24,
-    width: '100%',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  guestIconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primarySoft,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  guestGateTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 18,
-    color: Colors.textPrimary,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  guestGateSubtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-    paddingHorizontal: 6,
-  },
-  guestAuthBtnPrimary: {
-    backgroundColor: Colors.primaryDark,
-    borderRadius: 14,
-    height: 48,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  guestAuthBtnPrimaryText: {
-    fontFamily: Fonts.bold,
-    fontSize: 13,
-    color: Colors.background,
-  },
-  guestAuthBtnSecondary: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 14,
-    height: 48,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 10,
-  },
-  guestAuthBtnSecondaryText: {
-    fontFamily: Fonts.bold,
-    fontSize: 13,
-    color: Colors.textPrimary,
-  },
-  guestCancelBtn: {
-    paddingVertical: 6,
-  },
-  guestCancelBtnText: {
-    fontFamily: Fonts.medium,
-    fontSize: 12,
-    color: Colors.textMuted,
   },
 });
-
-

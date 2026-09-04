@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "PickSure needs access to your camera to guide your compositions and capture studio shots.",
+        "NSPhotoLibraryUsageDescription": "PickSure needs access to your photos to select reference guides and save captured photos.",
+        "NSPhotoLibraryAddUsageDescription": "PickSure needs permission to save captured composition photos to your library."
+      }
     },
     "android": {
       "package": "com.picksure.app",
@@ -17,6 +22,11 @@
         "backgroundColor": "#161114",
         "foregroundImage": "./assets/images/icon.png"
       },
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -27,6 +37,19 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "PickSure needs access to your camera to guide your compositions and capture studio shots."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "PickSure needs access to your photos to select reference guides and save captured photos.",
+          "savePhotosPermission": "PickSure needs permission to save captured composition photos to your library."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/icon.png",
@@ -35,7 +58,8 @@
           "backgroundColor": "#161114"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
