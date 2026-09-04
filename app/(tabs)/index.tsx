@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
   Text, 
   ScrollView, 
   TouchableOpacity, 
-  StatusBar,
+  StatusBar, 
   Dimensions,
   TextInput,
   RefreshControl,
@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Template } from '@/src/data/templates';
+import { FILTER_CATEGORIES, FilterCategoryType } from '@/src/constants/categories';
 import { useTemplates } from '@/hooks/useTemplates';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -29,16 +30,7 @@ import UploadTemplateModal from '@/components/UploadTemplateModal';
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 48) / 2;
 
-const CATEGORIES = [
-  'All', 
-  'Cafe & Lifestyle', 
-  'OOTD & Streetwear', 
-  'Cottagecore & Nature', 
-  'Editorial & Noir', 
-  'Minimalist & Silhouette', 
-  'Casual & Mirror Check', 
-  'Couples & Friends'
-];
+const CATEGORIES = FILTER_CATEGORIES;
 
 export default function HomeScreen() {
   const { 
@@ -51,11 +43,23 @@ export default function HomeScreen() {
   } = useTemplates();
   const { user } = useAuth();
   const { isDark, toggleTheme, themeColors } = useTheme();
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const params = useLocalSearchParams<{ category?: string }>();
+  const [selectedCategory, setSelectedCategory] = useState<FilterCategoryType>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (params.category) {
+      const matched = FILTER_CATEGORIES.find(
+        cat => cat.toLowerCase() === params.category?.toLowerCase()
+      );
+      if (matched) {
+        setSelectedCategory(matched);
+      }
+    }
+  }, [params.category]);
 
   // Filter templates based on category selection
   const filteredTemplates = templates.filter(template => {

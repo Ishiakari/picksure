@@ -22,16 +22,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/theme';
 import { addCustomTemplateToFeed } from '@/hooks/useTemplates';
 import { Template } from '@/src/data/templates';
+import { CATEGORIES, CategoryType } from '@/src/constants/categories';
 
-const UPLOAD_CATEGORIES = [
-  'Cafe & Lifestyle',
-  'OOTD & Streetwear',
-  'Cottagecore & Nature',
-  'Editorial & Noir',
-  'Minimalist & Silhouette',
-  'Casual & Mirror Check',
-  'Couples & Friends'
-];
+const UPLOAD_CATEGORIES = CATEGORIES;
 
 const DIFFICULTIES: Array<'Beginner' | 'Intermediate' | 'Advanced'> = [
   'Beginner',
@@ -64,7 +57,7 @@ interface UploadTemplateModalProps {
 export default function UploadTemplateModal({ visible, onClose, onUploadSuccess }: UploadTemplateModalProps) {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState(UPLOAD_CATEGORIES[0]);
+  const [category, setCategory] = useState<CategoryType>(UPLOAD_CATEGORIES[0]);
   const [difficulty, setDifficulty] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Beginner');
   const [description, setDescription] = useState('');
   const [guideInstructions, setGuideInstructions] = useState('');
