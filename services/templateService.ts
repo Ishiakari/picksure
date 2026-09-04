@@ -1,5 +1,5 @@
 // services/templateService.ts
-import { TEMPLATES, Template } from '@/src/data/templates';
+import { Template } from '@/src/data/templates';
 import { CategoryType } from '@/src/constants/categories';
 import { supabase } from '@/lib/supabase';
 
@@ -20,17 +20,22 @@ export const templateService = {
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (error || !data) {
-        return { 
-          templates: page === 0 ? TEMPLATES : [], 
-          hasMore: false 
+      if (error) {
+        console.error("Supabase getTemplates error:", error.message);
+        throw error;
+      }
+
+      if (!data) {
+        return {
+          templates: [],
+          hasMore: false,
         };
       }
-      
-      const remoteTemplates: Template[] = data.map(item => {
+
+      const remoteTemplates: Template[] = data.map((item) => {
         let tipsArray: string[] = [];
 
-        // Prefer native tips array (JSONB or Postgres TEXT[])
+        // Parse tips: native Array, JSON string, or legacy delimiter
         if (Array.isArray(item.tips) && item.tips.length > 0) {
           tipsArray = item.tips;
         } else if (typeof item.tips === 'string' && item.tips.trim().startsWith('[')) {
@@ -44,7 +49,7 @@ export const templateService = {
 
         let cleanDesc = item.description || '';
 
-        // Fallback backward-compatibility check for legacy text blobs
+        // Backward-compatibility check for legacy text blobs
         if (tipsArray.length === 0 && cleanDesc.includes("DIRECTOR'S GUIDE:")) {
           const parts = cleanDesc.split("DIRECTOR'S GUIDE:");
           cleanDesc = parts[0].trim();
@@ -54,9 +59,8 @@ export const templateService = {
             .filter((t: string) => t.length > 0);
         }
 
-        // Final fallback if no tips found
-        if (tipsArray.length === 0) {
-          tipsArray = cleanDesc.length > 0 ? [cleanDesc] : ['Align pose overlay with subject.'];
+        if (tipsArray.length === 0 && cleanDesc.length > 0) {
+          tipsArray = [cleanDesc];
         }
 
         return {
@@ -74,14 +78,12 @@ export const templateService = {
         };
       });
 
-      // Combine local default templates with remote templates on page 0
-      const combined = page === 0 ? [...remoteTemplates, ...TEMPLATES] : remoteTemplates;
       const hasMore = data.length === limit;
-
-      return { templates: combined, hasMore };
+      return { templates: remoteTemplates, hasMore };
     } catch (err) {
       console.error("Error in templateService.getTemplates:", err);
-      return { templates: page === 0 ? TEMPLATES : [], hasMore: false };
+      throw err;
     }
-  }
+  },
 };
+
