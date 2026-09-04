@@ -79,7 +79,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
   const [description, setDescription] = useState('');
   const [guideInstructions, setGuideInstructions] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<'3:4 RATIO' | '4:5 RATIO' | '1:1 RATIO'>('3:4 RATIO');
+  const [aspectRatio, setAspectRatio] = useState<'3:4 RATIO' | '4:5 RATIO' | '1:1 RATIO' | '9:16 RATIO'>('3:4 RATIO');
   const [uploading, setUploading] = useState(false);
 
   // Guest auth bottom sheet gate
@@ -175,7 +175,22 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
-      setSelectedImageUri(result.assets[0].uri);
+      const asset = result.assets[0];
+      setSelectedImageUri(asset.uri);
+      
+      // Auto-detect native aspect ratio
+      if (asset.width && asset.height) {
+        const r = asset.width / asset.height;
+        if (Math.abs(r - 1) < 0.12) {
+          setAspectRatio('1:1 RATIO');
+        } else if (Math.abs(r - (3 / 4)) < 0.12) {
+          setAspectRatio('3:4 RATIO');
+        } else if (Math.abs(r - (4 / 5)) < 0.12) {
+          setAspectRatio('4:5 RATIO');
+        } else if (Math.abs(r - (9 / 16)) < 0.15) {
+          setAspectRatio('9:16 RATIO');
+        }
+      }
       setCurrentStep(2);
     }
   };
@@ -189,12 +204,25 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
 
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
-      aspect: [3, 4],
       quality: 0.85,
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
-      setSelectedImageUri(result.assets[0].uri);
+      const asset = result.assets[0];
+      setSelectedImageUri(asset.uri);
+
+      if (asset.width && asset.height) {
+        const r = asset.width / asset.height;
+        if (Math.abs(r - 1) < 0.12) {
+          setAspectRatio('1:1 RATIO');
+        } else if (Math.abs(r - (3 / 4)) < 0.12) {
+          setAspectRatio('3:4 RATIO');
+        } else if (Math.abs(r - (4 / 5)) < 0.12) {
+          setAspectRatio('4:5 RATIO');
+        } else if (Math.abs(r - (9 / 16)) < 0.15) {
+          setAspectRatio('9:16 RATIO');
+        }
+      }
       setCurrentStep(2);
     }
   };
@@ -485,7 +513,7 @@ export default function UploadTemplateModal({ visible, onClose, onUploadSuccess 
                 {/* Aspect Ratio Selector */}
                 <Text style={styles.fieldLabel}>ASPECT RATIO</Text>
                 <View style={styles.aspectRatioRow}>
-                  {(['3:4 RATIO', '4:5 RATIO', '1:1 RATIO'] as const).map((ratio) => (
+                  {(['3:4 RATIO', '4:5 RATIO', '1:1 RATIO', '9:16 RATIO'] as const).map((ratio) => (
                     <TouchableOpacity
                       key={ratio}
                       style={[

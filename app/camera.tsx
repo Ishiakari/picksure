@@ -23,7 +23,118 @@ import { FigmaImages } from '@/src/constants/assets';
 import { PoseSilhouette } from '@/components/PoseSilhouette';
 import SessionGalleryModal from '@/components/SessionGalleryModal';
 
+import * as ImageManipulator from 'expo-image-manipulator';
+
 const { width, height } = Dimensions.get('window');
+
+export type CameraRatio = '4:3' | '1:1' | '16:9' | 'Full';
+
+const DEFAULT_RATIOS: CameraRatio[] = ['4:3', '1:1', '16:9', 'Full'];
+
+// Helper to crop captured image to match the active cameraRatio framing
+async function cropPhotoToActiveRatio(photoUri: string, photoW: number, photoH: number, ratio: CameraRatio): Promise<string> {
+  if (ratio === 'Full' || !photoW || !photoH) {
+    return photoUri;
+  }
+
+  let targetRatio = 4 / 3; // default portrait height/width or width/height
+  if (ratio === '1:1') {
+    targetRatio = 1;
+  } else if (ratio === '4:3') {
+    targetRatio = 3 / 4; // portrait 3:4 width/height
+  } else if (ratio === '16:9') {
+    targetRatio = 9 / 16; // portrait 9:16 width/height
+  }
+
+  const isPortrait = photoH >= photoW;
+  let cropWidth = photoW;
+  let cropHeight = photoH;
+
+  if (isPortrait) {
+    const currentRatio = photoW / photoH;
+    if (currentRatio > targetRatio) {
+      // Image is wider than target ratio: crop sides
+      cropWidth = Math.round(photoH * targetRatio);
+      cropHeight = photoH;
+    } else {
+      // Image is taller than target ratio: crop top/bottom
+      cropWidth = photoW;
+      cropHeight = Math.round(photoW / targetRatio);
+    }
+  } else {
+    // Landscape photo handling
+    const landTargetRatio = 1 / targetRatio;
+    const currentRatio = photoW / photoH;
+    if (currentRatio > landTargetRatio) {
+      cropWidth = Math.round(photoH * landTargetRatio);
+      cropHeight = photoH;
+    } else {
+      cropWidth = photoW;
+      cropHeight = Math.round(photoW / landTargetRatio);
+    }
+  }
+
+  const originX = Math.max(0, Math.round((photoW - cropWidth) / 2));
+  const originY = Math.max(0, Math.round((photoH - cropHeight) / 2));
+
+  try {
+    const manipResult = await ImageManipulator.manipulateAsync(
+      photoUri,
+      [
+        {
+          crop: {
+            originX,
+            originY,
+            width: Math.min(cropWidth, photoW - originX),
+            height: Math.min(cropHeight, photoH - originY),
+          },
+        },
+      ],
+      { compress: 0.92, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    return manipResult.uri;
+  } catch (err) {
+    console.warn('ImageManipulator crop fallback:', err);
+    return photoUri;
+  }
+}
+
+// Helper to calculate frame dimensions based on screen width/height and selected ratio
+function getViewportDimensions(selectedRatio: CameraRatio, screenW: number, screenH: number) {
+  let frameW = screenW;
+  let frameH = screenH;
+
+  if (selectedRatio === '1:1') {
+    frameW = screenW;
+    frameH = screenW;
+  } else if (selectedRatio === '4:3') {
+    frameW = screenW;
+    frameH = screenW * (4 / 3);
+  } else if (selectedRatio === '16:9') {
+    frameW = screenW;
+    frameH = screenW * (16 / 9);
+    if (frameH > screenH) {
+      frameH = screenH;
+      frameW = screenH * (9 / 16);
+    }
+  } else {
+    // Full
+    frameW = screenW;
+    frameH = screenH;
+  }
+
+  return { width: frameW, height: frameH };
+}
+
+// Convert template ratio metadata string (e.g. '3:4 RATIO', '4:5 RATIO', '1:1 RATIO', '9:16 RATIO') to closest camera ratio
+function mapTemplateRatioToCameraRatio(ratioStr?: string): CameraRatio {
+  if (!ratioStr) return '4:3';
+  const clean = ratioStr.toUpperCase();
+  if (clean.includes('1:1')) return '1:1';
+  if (clean.includes('3:4') || clean.includes('4:3') || clean.includes('4:5')) return '4:3';
+  if (clean.includes('9:16') || clean.includes('16:9') || clean.includes('1.618')) return '16:9';
+  return '4:3';
+}
 
 export default function CameraScreen() {
   const params = useLocalSearchParams<{ templateId?: string; id?: string }>();
@@ -54,6 +165,11 @@ export default function CameraScreen() {
     Platform.OS === 'web' ? true : null
   );
 
+  // Dynamic Camera Capture Ratios
+  const [availableRatios, setAvailableRatios] = useState<CameraRatio[]>(DEFAULT_RATIOS);
+  const [cameraRatio, setCameraRatio] = useState<CameraRatio>('4:3');
+  const [ratioToastMessage, setRatioToastMessage] = useState<string | null>(null);
+
   // Viewfinder Settings
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [flash, setFlash] = useState<'off' | 'on' | 'auto'>('off');
@@ -71,10 +187,38 @@ export default function CameraScreen() {
   const [capturedPhotosList, setCapturedPhotosList] = useState<string[]>([]);
   const [isGalleryVisible, setIsGalleryVisible] = useState(false);
 
-  // Pulse animation for tactile shutter ring & alignment toast slide
+  // Pulse animation for tactile shutter ring, alignment toast, and ratio toast
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const alignToastAnim = useRef(new Animated.Value(0)).current;
+  const ratioToastAnim = useRef(new Animated.Value(0)).current;
   const cameraRef = useRef<any>(null);
+
+  // Auto-suggest and set matching ratio when active guide loads / changes
+  useEffect(() => {
+    if (template?.ratio) {
+      const suggestedRatio = mapTemplateRatioToCameraRatio(template.ratio);
+      setCameraRatio(suggestedRatio);
+      
+      const cleanRatioName = template.ratio.replace(/RATIO/i, '').trim();
+      setRatioToastMessage(`Camera set to ${suggestedRatio} to match guide (${cleanRatioName})`);
+
+      Animated.sequence([
+        Animated.timing(ratioToastAnim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.delay(2800),
+        Animated.timing(ratioToastAnim, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setRatioToastMessage(null);
+      });
+    }
+  }, [template?.id, template?.ratio]);
 
   const requestPermissions = async () => {
     try {
@@ -164,6 +308,14 @@ export default function CameraScreen() {
     setOverlayMode((prev) => (prev === 'outline' ? 'photo' : 'outline'));
   };
 
+  const toggleCameraRatio = () => {
+    setCameraRatio((current) => {
+      const idx = availableRatios.indexOf(current);
+      const nextIdx = (idx + 1) % availableRatios.length;
+      return availableRatios[nextIdx];
+    });
+  };
+
   const handleCycleTemplate = () => {
     if (templates.length === 0) return;
     setCurrentIndex((prev) => (prev + 1) % templates.length);
@@ -189,14 +341,22 @@ export default function CameraScreen() {
       try {
         setIsCapturing(true);
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.9,
+          quality: 0.92,
           skipProcessing: false,
         });
 
         if (photo?.uri) {
-          setCapturedPhotosList((prev) => [photo.uri, ...prev]);
+          // Crop photo to match the exact active cameraRatio frame
+          const finalPhotoUri = await cropPhotoToActiveRatio(
+            photo.uri,
+            photo.width || width,
+            photo.height || height,
+            cameraRatio
+          );
+
+          setCapturedPhotosList((prev) => [finalPhotoUri, ...prev]);
           if (mediaPermission && Platform.OS !== 'web') {
-            await MediaLibrary.saveToLibraryAsync(photo.uri);
+            await MediaLibrary.saveToLibraryAsync(finalPhotoUri);
           }
         }
       } catch (err) {
@@ -272,111 +432,123 @@ export default function CameraScreen() {
   }
 
   const isWeb = Platform.OS === 'web';
+  const frameDim = getViewportDimensions(cameraRatio, width, height);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Live Camera Feed Viewport */}
-      <View style={StyleSheet.absoluteFillObject}>
-        {isWeb ? (
-          <Image
-            source={FigmaImages.cameraSimulation}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover"
-          />
-        ) : (
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFillObject}
-            facing={facing}
-            flash={flash}
-            zoom={getZoomValue()}
-          />
-        )}
-
-        {/* Filter Warm / Noir Scrim */}
-        {filterPreset === 'warm' && <View style={styles.warmFilterScrim} />}
-        {filterPreset === 'noir' && <View style={styles.noirFilterScrim} />}
-
-        {/* Permanent Top and Bottom Dark Scrims */}
-        <View style={styles.topPermanentScrim} />
-        <View style={styles.bottomPermanentScrim} />
-
-        {/* C2: Composition Grid Overlay (Rule of Thirds in Brand Pastel Accent) */}
-        {showGrid && (
-          <Svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 100 100"
-            style={StyleSheet.absoluteFillObject}
-            pointerEvents="none"
-          >
-            <SvgLine
-              x1="33.3"
-              y1="0"
-              x2="33.3"
-              y2="100"
-              stroke="rgba(255, 204, 213, 0.5)"
-              strokeWidth="0.5"
-              strokeDasharray="2, 2"
+      {/* Viewport Frame Container with Letterbox Background */}
+      <View style={styles.viewportLetterboxContainer}>
+        <View
+          style={[
+            styles.viewportFrame,
+            {
+              width: frameDim.width,
+              height: frameDim.height,
+            },
+          ]}
+        >
+          {/* Live Camera Feed Viewport */}
+          {isWeb ? (
+            <Image
+              source={FigmaImages.cameraSimulation}
+              style={StyleSheet.absoluteFillObject}
+              contentFit="cover"
             />
-            <SvgLine
-              x1="66.6"
-              y1="0"
-              x2="66.6"
-              y2="100"
-              stroke="rgba(255, 204, 213, 0.5)"
-              strokeWidth="0.5"
-              strokeDasharray="2, 2"
+          ) : (
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFillObject}
+              facing={facing}
+              flash={flash}
+              zoom={getZoomValue()}
             />
-            <SvgLine
-              x1="0"
-              y1="33.3"
-              x2="100"
-              y2="33.3"
-              stroke="rgba(255, 204, 213, 0.5)"
-              strokeWidth="0.5"
-              strokeDasharray="2, 2"
-            />
-            <SvgLine
-              x1="0"
-              y1="66.6"
-              x2="100"
-              y2="66.6"
-              stroke="rgba(255, 204, 213, 0.5)"
-              strokeWidth="0.5"
-              strokeDasharray="2, 2"
-            />
-          </Svg>
-        )}
+          )}
 
-        {/* C1: Reference Photo OR Dashed Silhouette Ghost Vector Template */}
-        {showGhost && template && (
-          <>
-            {overlayMode === 'photo' && template.imageSource && (
-              <Image
-                source={template.imageSource}
-                style={[
-                  StyleSheet.absoluteFillObject,
-                  { opacity: (opacityValue / 100) * 0.5 },
-                ]}
-                contentFit="cover"
-                pointerEvents="none"
+          {/* Filter Warm / Noir Scrim */}
+          {filterPreset === 'warm' && <View style={styles.warmFilterScrim} />}
+          {filterPreset === 'noir' && <View style={styles.noirFilterScrim} />}
+
+          {/* Composition Grid Overlay (Rule of Thirds relative to active ratio frame) */}
+          {showGrid && (
+            <Svg
+              width="100%"
+              height="100%"
+              viewBox="0 0 100 100"
+              style={StyleSheet.absoluteFillObject}
+              pointerEvents="none"
+            >
+              <SvgLine
+                x1="33.3"
+                y1="0"
+                x2="33.3"
+                y2="100"
+                stroke="rgba(255, 204, 213, 0.5)"
+                strokeWidth="0.5"
+                strokeDasharray="2, 2"
               />
-            )}
-            {overlayMode === 'outline' && (
-              <View style={styles.ghostContainer} pointerEvents="none">
-                <PoseSilhouette
-                  opacity={opacityValue / 100}
-                  width={width * 0.78}
-                  height={height * 0.58}
+              <SvgLine
+                x1="66.6"
+                y1="0"
+                x2="66.6"
+                y2="100"
+                stroke="rgba(255, 204, 213, 0.5)"
+                strokeWidth="0.5"
+                strokeDasharray="2, 2"
+              />
+              <SvgLine
+                x1="0"
+                y1="33.3"
+                x2="100"
+                y2="33.3"
+                stroke="rgba(255, 204, 213, 0.5)"
+                strokeWidth="0.5"
+                strokeDasharray="2, 2"
+              />
+              <SvgLine
+                x1="0"
+                y1="66.6"
+                x2="100"
+                y2="66.6"
+                stroke="rgba(255, 204, 213, 0.5)"
+                strokeWidth="0.5"
+                strokeDasharray="2, 2"
+              />
+            </Svg>
+          )}
+
+          {/* Reference Photo OR Dashed Silhouette Ghost Vector Template at True Aspect Ratio */}
+          {showGhost && template && (
+            <>
+              {overlayMode === 'photo' && template.imageSource && (
+                <Image
+                  source={template.imageSource}
+                  style={[
+                    StyleSheet.absoluteFillObject,
+                    { opacity: (opacityValue / 100) * 0.55 },
+                  ]}
+                  contentFit="contain"
+                  pointerEvents="none"
                 />
-              </View>
-            )}
-          </>
-        )}
+              )}
+              {overlayMode === 'outline' && (
+                <View style={styles.ghostContainer} pointerEvents="none">
+                  <PoseSilhouette
+                    opacity={opacityValue / 100}
+                    width={frameDim.width * 0.76}
+                    height={frameDim.height * 0.58}
+                  />
+                </View>
+              )}
+            </>
+          )}
+        </View>
       </View>
+
+      {/* Permanent Top and Bottom Dark Scrims */}
+      <View style={styles.topPermanentScrim} pointerEvents="none" />
+      <View style={styles.bottomPermanentScrim} pointerEvents="none" />
 
       {/* Interactive Top App Header HUD */}
       <SafeAreaView style={styles.topHudContainer} edges={['top']}>
@@ -399,23 +571,59 @@ export default function CameraScreen() {
             </Text>
           </View>
 
-          {/* C4: Layer counter button with standard stacked layers glyph */}
-          <TouchableOpacity
-            style={styles.templateSelectorBtn}
-            onPress={handleCycleTemplate}
-          >
-            <MaterialCommunityIcons
-              name="layers-outline"
-              size={18}
-              color={Colors.primary}
-            />
-            <Text style={styles.templateCounterText}>
-              {currentIndex + 1}/{templates.length || 1}
-            </Text>
-          </TouchableOpacity>
+          {/* Right Header Buttons: Ratio Manual Selector & Layer Counter */}
+          <View style={styles.topRightActions}>
+            <TouchableOpacity
+              style={styles.ratioSelectorBtn}
+              onPress={toggleCameraRatio}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="aspect-ratio" size={14} color={Colors.primary} />
+              <Text style={styles.ratioSelectorText}>{cameraRatio}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.templateSelectorBtn}
+              onPress={handleCycleTemplate}
+            >
+              <MaterialCommunityIcons
+                name="layers-outline"
+                size={18}
+                color={Colors.primary}
+              />
+              <Text style={styles.templateCounterText}>
+                {currentIndex + 1}/{templates.length || 1}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* C5: Alignment Toast Pill at top (slides in smoothly) */}
+        {/* Ratio Auto-Suggest Non-blocking Toast */}
+        {ratioToastMessage && (
+          <Animated.View
+            style={[
+              styles.ratioToastWrapper,
+              {
+                opacity: ratioToastAnim,
+                transform: [
+                  {
+                    translateY: ratioToastAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-8, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.ratioToastPill}>
+              <MaterialCommunityIcons name="auto-fix" size={13} color={Colors.primary} />
+              <Text style={styles.ratioToastText}>{ratioToastMessage}</Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Alignment Toast Pill at top (slides in smoothly) */}
         <Animated.View
           style={[
             styles.alignmentToastWrapper,
@@ -728,6 +936,17 @@ const styles = StyleSheet.create({
     height: 240,
     backgroundColor: 'rgba(29, 28, 22, 0.85)',
   },
+  viewportLetterboxContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0D0C0A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewportFrame: {
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#161411',
+  },
   ghostContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -755,7 +974,7 @@ const styles = StyleSheet.create({
   topMetadata: {
     alignItems: 'center',
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   topCategoryText: {
     fontFamily: Fonts.bold,
@@ -767,6 +986,27 @@ const styles = StyleSheet.create({
   topGuideTitle: {
     fontFamily: Fonts.bold,
     fontSize: 16,
+    color: Colors.textLight,
+  },
+  topRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ratioSelectorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(50, 48, 43, 0.75)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(231, 226, 217, 0.25)',
+    gap: 4,
+  },
+  ratioSelectorText: {
+    fontFamily: Fonts.bold,
+    fontSize: 11,
     color: Colors.textLight,
   },
   templateSelectorBtn: {
@@ -785,9 +1025,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textLight,
   },
+  ratioToastWrapper: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  ratioToastPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 28, 24, 0.92)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(247, 160, 184, 0.4)',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  ratioToastText: {
+    fontFamily: Fonts.bold,
+    fontSize: 11,
+    color: Colors.primarySoft,
+    letterSpacing: 0.2,
+  },
   alignmentToastWrapper: {
     alignItems: 'center',
-    marginTop: 14,
+    marginTop: 8,
   },
   alignmentToastPill: {
     flexDirection: 'row',
