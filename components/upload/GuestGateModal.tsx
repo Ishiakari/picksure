@@ -46,7 +46,7 @@ export default function GuestGateModal({
 
 const styles = StyleSheet.create({
   guestGateOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(29, 28, 22, 0.7)',
     justifyContent: 'flex-end',
     zIndex: 50,

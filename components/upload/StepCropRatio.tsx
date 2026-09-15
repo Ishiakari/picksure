@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   outlineOverlayMask: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(29, 28, 22, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',

@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   imageScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(29, 28, 22, 0.25)',
   },
   pillTag: {

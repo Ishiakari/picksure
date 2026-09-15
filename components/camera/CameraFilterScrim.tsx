@@ -38,7 +38,7 @@ export default function CameraFilterScrim({
           width="100%"
           height="100%"
           viewBox="0 0 100 100"
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           pointerEvents="none"
         >
           <SvgLine
@@ -87,7 +87,7 @@ export default function CameraFilterScrim({
             <Image
               source={template.imageSource}
               style={[
-                StyleSheet.absoluteFillObject,
+                StyleSheet.absoluteFill,
                 { opacity: (opacityValue / 100) * 0.55 },
               ]}
               contentFit="contain"
@@ -111,15 +111,15 @@ export default function CameraFilterScrim({
 
 const styles = StyleSheet.create({
   warmFilterScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(247, 160, 184, 0.15)',
   },
   noirFilterScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   ghostContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

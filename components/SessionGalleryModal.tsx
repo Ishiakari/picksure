@@ -101,7 +101,7 @@ export default function SessionGalleryModal({ visible, photos, onClose, onClear 
 
 const styles = StyleSheet.create({
   galleryModal: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.darkBackground,
     zIndex: 1000,
   },
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fullScreenViewer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000',
     zIndex: 1100,
   },
