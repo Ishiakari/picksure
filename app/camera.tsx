@@ -163,13 +163,13 @@ export default function CameraScreen() {
           {isWeb ? (
             <Image
               source={FigmaImages.cameraSimulation}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               contentFit="cover"
             />
           ) : (
             <CameraView
               ref={cameraRef}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               facing={facing}
               flash={flash}
               zoom={getZoomValue()}
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(29, 28, 22, 0.85)',
   },
   viewportLetterboxContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#0D0C0A',
     justifyContent: 'center',
     alignItems: 'center',
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#161411',
   },
   countdownWrapper: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 30,

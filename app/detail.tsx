@@ -309,7 +309,7 @@ export default function TemplateDetailScreen() {
           <View style={styles.canvasViewport}>
             <Image
               source={template.imageSource}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               contentFit="cover"
             />
             <View style={styles.canvasScrim} />
@@ -320,7 +320,7 @@ export default function TemplateDetailScreen() {
                 width="100%"
                 height="100%"
                 viewBox="0 0 100 100"
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
               >
                 <SvgLine
                   x1="33.3"
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   canvasScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(29, 28, 22, 0.4)',
   },
   silhouetteContainer: {

@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   cardImageScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(29, 28, 22, 0.15)',
   },
   cardCategoryTag: {

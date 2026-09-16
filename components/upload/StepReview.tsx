@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   mockCardScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(29, 28, 22, 0.12)',
   },
   mockCategoryBadge: {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Platform, Linking } from 'react-native';
 import { Camera } from 'expo-camera';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 
 export interface CameraPermissionState {
   granted: boolean;
