@@ -1,4 +1,4 @@
-import React from 'react';
+vimport React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Tabs, router } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -103,12 +103,15 @@ export default function TabLayout() {
                 </Text>
               </TouchableOpacity>
 
-              {/* Tab: Profile */}
+              {/* Tab: Studio */}
               <TouchableOpacity
                 style={styles.tabItem}
                 onPress={() => {
                   navigation.navigate('profile');
                 }}
+                accessibilityRole="tab"
+                accessibilityLabel="Studio"
+                aria-label="Studio"
               >
                 <Feather
                   name="user"
@@ -121,7 +124,7 @@ export default function TabLayout() {
                     state.routes[state.index]?.name === 'profile' && styles.tabLabelActive,
                   ]}
                 >
-                  Profile
+                  Studio
                 </Text>
               </TouchableOpacity>
             </View>
@@ -132,7 +135,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
       <Tabs.Screen name="explore" options={{ title: 'Search' }} />
       <Tabs.Screen name="community" options={{ title: 'Community' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      <Tabs.Screen name="profile" options={{ title: 'Studio' }} />
     </Tabs>
   );
 }

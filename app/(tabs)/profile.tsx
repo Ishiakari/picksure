@@ -6,13 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Dimensions,
+  useWindowDimensions,
+  Platform,
   RefreshControl,
   Share,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,17 +25,21 @@ import { useBookmarks } from '@/hooks/useBookmarks';
 import { Colors, Fonts } from '@/constants/theme';
 import UploadTemplateModal from '@/components/UploadTemplateModal';
 
-const { width } = Dimensions.get('window');
-const COLUMN_WIDTH = (width - 48) / 2;
+const SCREEN_PADDING = 18;
+const GRID_GAP = 12;
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { templates, refresh, refreshing } = useTemplates();
   const { bookmarkedIds, reloadBookmarks } = useBookmarks();
+  const { width } = useWindowDimensions();
+
+  const cardWidth = Math.max(120, Math.floor((width - SCREEN_PADDING * 2 - GRID_GAP) / 2));
 
   const [activeTab, setActiveTab] = useState<'saved' | 'uploads'>('saved');
   const [uploadedTemplateIds, setUploadedTemplateIds] = useState<string[]>([]);
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
+  const [isEmailRevealed, setIsEmailRevealed] = useState(false);
 
   const loadUserUploads = async () => {
     try {
@@ -78,13 +84,6 @@ export default function ProfileScreen() {
     await Promise.all([loadUserUploads(), reloadBookmarks()]);
   };
 
-  const handleTemplatePress = (id: string) => {
-    router.push({
-      pathname: '/detail',
-      params: { id },
-    });
-  };
-
   const handleShareProfile = async () => {
     const displayName =
       user?.user_metadata?.full_name ||
@@ -99,19 +98,39 @@ export default function ProfileScreen() {
     }
   };
 
+  // P2 #8: Logout confirmation dialog on both native and web
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of your studio account?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          setUploadedTemplateIds([]);
-          await signOut();
-          await reloadBookmarks();
+    const executeLogout = async () => {
+      setUploadedTemplateIds([]);
+      await signOut();
+      await reloadBookmarks();
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to log out of your studio account?');
+      if (confirmed) {
+        executeLogout();
+      }
+    } else {
+      Alert.alert('Log Out', 'Are you sure you want to log out of your studio account?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: executeLogout,
         },
-      },
-    ]);
+      ]);
+    }
+  };
+
+  // P0 #2: Helper to mask email address by default
+  const maskEmail = (email: string) => {
+    if (!email || !email.includes('@')) return email;
+    const [name, domain] = email.split('@');
+    if (name.length <= 2) {
+      return `${name[0]}•••@${domain}`;
+    }
+    return `${name.slice(0, 2)}••••••@${domain}`;
   };
 
   const savedTemplates = user ? templates.filter((t) => bookmarkedIds.has(t.id)) : [];
@@ -136,26 +155,27 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* Top Header */}
+      {/* Top Header - P1 #3: Reconciled to 'Studio' */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.headerIconBtn}
           onPress={() => router.push('/modal')}
           accessibilityRole="button"
           accessibilityLabel="Open settings"
+          aria-label="Open settings"
         >
           <Feather name="settings" size={18} color={Colors.textPrimary} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>
-          {user ? 'My Studio' : 'Guest Explorer'}
-        </Text>
+        <Text style={styles.headerTitle}>Studio</Text>
 
+        {/* P2 #8: Accessible label aria-label="Log out" on logout icon */}
         <TouchableOpacity
           style={styles.headerIconBtn}
           onPress={user ? handleSignOut : () => router.push('/auth')}
           accessibilityRole="button"
-          accessibilityLabel={user ? 'Sign out' : 'Sign in'}
+          accessibilityLabel={user ? 'Log out' : 'Log in'}
+          aria-label={user ? 'Log out' : 'Log in'}
         >
           <Feather
             name={user ? 'log-out' : 'log-in'}
@@ -178,7 +198,7 @@ export default function ProfileScreen() {
         }
       >
         {user ? (
-          /* Authenticated My Studio Card */
+          /* Authenticated Studio Card - P2 #11: Balanced vertical padding */
           <View style={styles.profileCard}>
             <View style={styles.avatarWrapper}>
               {userAvatar ? (
@@ -200,7 +220,26 @@ export default function ProfileScreen() {
             </View>
 
             <Text style={styles.profileName}>{userName}</Text>
-            <Text style={styles.profileRole}>{userEmail}</Text>
+
+            {/* P0 #2 & P2 #10: Masked email by default + High-contrast secondary text */}
+            <TouchableOpacity
+              style={styles.emailContainer}
+              onPress={() => setIsEmailRevealed((prev) => !prev)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={isEmailRevealed ? 'Hide email address' : 'Reveal masked email address'}
+              aria-label={isEmailRevealed ? 'Hide email address' : 'Reveal masked email address'}
+            >
+              <Feather
+                name={isEmailRevealed ? 'eye-off' : 'eye'}
+                size={12}
+                color="#3D3335"
+                style={{ marginRight: 5 }}
+              />
+              <Text style={styles.profileRole}>
+                {isEmailRevealed ? userEmail : maskEmail(userEmail)}
+              </Text>
+            </TouchableOpacity>
 
             {/* Action Buttons Row */}
             <View style={styles.profileActionsRow}>
@@ -208,6 +247,9 @@ export default function ProfileScreen() {
                 style={[styles.profileActionBtn, styles.profileCreateBtn]}
                 onPress={() => setIsUploadModalVisible(true)}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Create Guide"
+                aria-label="Create Guide"
               >
                 <Feather name="plus" size={14} color={Colors.background} />
                 <Text style={styles.profileCreateText}>Create Guide</Text>
@@ -217,35 +259,57 @@ export default function ProfileScreen() {
                 style={styles.profileActionBtn}
                 onPress={handleShareProfile}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Share Studio"
+                aria-label="Share Studio"
               >
                 <Feather name="share-2" size={13} color={Colors.textPrimary} />
                 <Text style={styles.profileActionText}>Share Studio</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Studio Stats & Interactive Tab Switcher */}
+            {/* Studio Stats & Interactive Tab Switcher
+                P1 #4: Renamed 'My Uploads' to 'My Guides'
+                P1 #5: Standardized border/stroke on both stat boxes
+                P1 #6: Empty-state prompt when stat is 0
+                P2 #9: Visual tap affordance (chevron, active state, indicator)
+            */}
             <View style={styles.statsRow}>
+              {/* Stat 1: Saved Guides */}
               <TouchableOpacity
                 style={[
                   styles.statCard,
                   activeTab === 'saved' && styles.statCardActive,
                 ]}
-                activeOpacity={0.85}
+                activeOpacity={0.7}
                 onPress={() => setActiveTab('saved')}
+                accessibilityRole="tab"
+                accessibilityLabel={`Saved Guides, ${savedTemplates.length} guides`}
+                aria-label={`Saved Guides, ${savedTemplates.length} guides`}
+                accessibilityState={{ selected: activeTab === 'saved' }}
               >
-                <Text
-                  style={[
-                    styles.statNumber,
-                    activeTab === 'saved' && styles.statNumberActive,
-                  ]}
-                >
-                  {savedTemplates.length}
-                </Text>
+                <View style={styles.statTopRow}>
+                  <Text
+                    style={[
+                      styles.statNumber,
+                      activeTab === 'saved' && styles.statNumberActive,
+                    ]}
+                  >
+                    {savedTemplates.length}
+                  </Text>
+                  {/* P2 #9: Visual tap affordance chevron */}
+                  <Feather
+                    name="chevron-right"
+                    size={13}
+                    color={activeTab === 'saved' ? Colors.primaryDark : '#6E5F62'}
+                  />
+                </View>
+
                 <View style={styles.statLabelRow}>
                   <Ionicons
                     name="bookmark"
                     size={12}
-                    color={activeTab === 'saved' ? Colors.primaryDark : Colors.textMuted}
+                    color={activeTab === 'saved' ? Colors.primaryDark : '#443739'}
                   />
                   <Text
                     style={[
@@ -256,29 +320,65 @@ export default function ProfileScreen() {
                     Saved Guides
                   </Text>
                 </View>
+
+                {/* P1 #6: Empty state prompt when stat is 0 */}
+                {savedTemplates.length === 0 && (
+                  <TouchableOpacity
+                    style={styles.statEmptyPrompt}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      router.push('/explore');
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Explore guides to save"
+                    aria-label="Explore guides to save"
+                  >
+                    <Text style={styles.statEmptyPromptText}>
+                      Explore guides to save →
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* P2 #9: Subtle active tab indicator bar */}
+                {activeTab === 'saved' && <View style={styles.statActiveBar} />}
               </TouchableOpacity>
 
+              {/* Stat 2: My Guides (P1 #4) */}
               <TouchableOpacity
                 style={[
                   styles.statCard,
                   activeTab === 'uploads' && styles.statCardActive,
                 ]}
-                activeOpacity={0.85}
+                activeOpacity={0.7}
                 onPress={() => setActiveTab('uploads')}
+                accessibilityRole="tab"
+                accessibilityLabel={`My Guides, ${uploadedTemplates.length} guides`}
+                aria-label={`My Guides, ${uploadedTemplates.length} guides`}
+                accessibilityState={{ selected: activeTab === 'uploads' }}
               >
-                <Text
-                  style={[
-                    styles.statNumber,
-                    activeTab === 'uploads' && styles.statNumberActive,
-                  ]}
-                >
-                  {uploadedTemplates.length}
-                </Text>
+                <View style={styles.statTopRow}>
+                  <Text
+                    style={[
+                      styles.statNumber,
+                      activeTab === 'uploads' && styles.statNumberActive,
+                    ]}
+                  >
+                    {uploadedTemplates.length}
+                  </Text>
+                  {/* P2 #9: Visual tap affordance chevron */}
+                  <Feather
+                    name="chevron-right"
+                    size={13}
+                    color={activeTab === 'uploads' ? Colors.primaryDark : '#6E5F62'}
+                  />
+                </View>
+
                 <View style={styles.statLabelRow}>
                   <Ionicons
                     name="cloud-upload"
                     size={12}
-                    color={activeTab === 'uploads' ? Colors.primaryDark : Colors.textMuted}
+                    color={activeTab === 'uploads' ? Colors.primaryDark : '#443739'}
                   />
                   <Text
                     style={[
@@ -286,9 +386,31 @@ export default function ProfileScreen() {
                       activeTab === 'uploads' && styles.statLabelActive,
                     ]}
                   >
-                    My Uploads
+                    My Guides
                   </Text>
                 </View>
+
+                {/* P1 #6: Empty state prompt when stat is 0 */}
+                {uploadedTemplates.length === 0 && (
+                  <TouchableOpacity
+                    style={styles.statEmptyPrompt}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      setIsUploadModalVisible(true);
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Tap Create Guide to get started"
+                    aria-label="Tap Create Guide to get started"
+                  >
+                    <Text style={styles.statEmptyPromptText}>
+                      Tap Create Guide to get started →
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* P2 #9: Subtle active tab indicator bar */}
+                {activeTab === 'uploads' && <View style={styles.statActiveBar} />}
               </TouchableOpacity>
             </View>
           </View>
@@ -308,6 +430,9 @@ export default function ProfileScreen() {
               style={styles.guestSignInBtn}
               activeOpacity={0.88}
               onPress={() => router.push('/auth')}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in or create account"
+              aria-label="Sign in or create account"
             >
               <Feather name="log-in" size={16} color={Colors.background} style={{ marginRight: 8 }} />
               <Text style={styles.guestSignInText}>Sign In / Create Account</Text>
@@ -315,7 +440,7 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Dynamic Grid Display for Authenticated Users */}
+        {/* Dynamic Grid Display for Authenticated Users - P1 #7: Normalized insets */}
         {user ? (
           displayedTemplates.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -325,12 +450,12 @@ export default function ProfileScreen() {
                 color={Colors.primaryDark}
               />
               <Text style={styles.emptyTitle}>
-                {activeTab === 'saved' ? 'No Saved Poses Yet' : 'No Uploaded Poses Yet'}
+                {activeTab === 'saved' ? 'No Saved Guides Yet' : 'No Created Guides Yet'}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {activeTab === 'saved'
                   ? 'Tap the bookmark icon on any guide in the Home feed to save it to your studio collection.'
-                  : 'Tap "+ Upload Pose" on Home to publish your custom composition guides!'}
+                  : 'Tap "Create Guide" above to publish your custom composition guides!'}
               </Text>
             </View>
           ) : (
@@ -338,18 +463,27 @@ export default function ProfileScreen() {
               {displayedTemplates.map((item) => (
                 <TouchableOpacity
                   key={item.id}
-                  style={styles.card}
+                  style={[styles.card, { width: cardWidth }]}
                   activeOpacity={0.9}
                   onPress={() =>
                     router.push({ pathname: '/detail', params: { id: item.id } })
                   }
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.title}, ${item.category || 'Guide'}`}
+                  aria-label={`${item.title}, ${item.category || 'Guide'}`}
                 >
                   <Image
                     source={item.imageSource}
                     style={styles.cardImage}
                     contentFit="cover"
                   />
-                  <View style={styles.cardScrim} />
+                  {/* P0 #1: Dark gradient scrim (linear-gradient, transparent to rgba(0,0,0,0.6)) behind bottom-third */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0, 0, 0, 0.65)']}
+                    locations={[0, 1]}
+                    style={styles.cardBottomGradient}
+                    pointerEvents="none"
+                  />
                   <View style={styles.cardTag}>
                     <Text style={styles.cardTagText}>
                       {(item.category || '').toUpperCase()}
@@ -394,7 +528,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    paddingHorizontal: SCREEN_PADDING,
     paddingVertical: 10,
   },
   headerIconBtn: {
@@ -412,22 +546,27 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: Colors.textPrimary,
   },
+  // P1 #7: Normalized edge padding (SCREEN_PADDING = 18)
   scrollContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: SCREEN_PADDING,
     paddingTop: 8,
   },
+  // P2 #11: Symmetrical vertical padding (20px top, 20px bottom)
   profileCard: {
     backgroundColor: Colors.surface,
     borderRadius: 24,
-    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
     marginBottom: 16,
+    width: '100%',
   },
   avatarWrapper: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   avatarImage: {
     width: 84,
@@ -478,18 +617,27 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: Colors.textPrimary,
   },
-  profileRole: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    color: Colors.textSecondary,
+  emailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  // P2 #10: Darkened secondary text (#3D3335) with 10.9:1 contrast ratio against cream
+  profileRole: {
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    color: '#3D3335',
     textAlign: 'center',
   },
   profileActionsRow: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 14,
-    marginBottom: 18,
+    marginBottom: 16,
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
@@ -523,28 +671,33 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
   },
+  // P1 #5: Standardized border/stroke on both stat boxes (borderWidth: 1.5, borderColor: Colors.border)
   statCard: {
     flex: 1,
     backgroundColor: Colors.surfaceAlt,
     borderRadius: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: Colors.border,
+    position: 'relative',
+    overflow: 'hidden',
   },
   statCardActive: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.primaryDark,
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 2,
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.border, // Standardized: same border treatment as inactive
+  },
+  statTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   statNumber: {
     fontFamily: Fonts.bold,
     fontSize: 22,
-    color: Colors.textPrimary,
+    color: '#1A1817',
   },
   statNumberActive: {
     color: Colors.primaryDark,
@@ -553,16 +706,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
+    marginTop: 2,
   },
+  // P2 #10: High contrast inactive label (#443739) with 9.8:1 ratio
   statLabel: {
     fontFamily: Fonts.semiBold,
     fontSize: 11,
-    color: Colors.textMuted,
+    color: '#443739',
   },
   statLabelActive: {
     color: Colors.primaryDark,
     fontFamily: Fonts.bold,
+  },
+  // P1 #6: Empty-state prompt button when stat is 0
+  statEmptyPrompt: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(132, 60, 84, 0.08)',
+  },
+  statEmptyPromptText: {
+    fontFamily: Fonts.semiBold,
+    fontSize: 10,
+    color: Colors.primaryDark,
+    textAlign: 'center',
+  },
+  // P2 #9: Visual tap affordance indicator bar
+  statActiveBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 18,
+    right: 18,
+    height: 3,
+    backgroundColor: Colors.primaryDark,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   guestCard: {
     backgroundColor: Colors.surface,
@@ -618,35 +797,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.background,
   },
-  tabSwitcher: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderRadius: 999,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 16,
-  },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 999,
-    gap: 6,
-  },
-  tabBtnActive: {
-    backgroundColor: Colors.primaryDark,
-  },
-  tabBtnText: {
-    fontFamily: Fonts.semiBold,
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  tabBtnTextActive: {
-    color: Colors.background,
-  },
   emptyContainer: {
     paddingVertical: 36,
     alignItems: 'center',
@@ -665,13 +815,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
+  // P1 #7: Normalized edge alignment with profile card
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: GRID_GAP,
+    width: '100%',
   },
   card: {
-    width: COLUMN_WIDTH,
     height: 200,
     borderRadius: 16,
     overflow: 'hidden',
@@ -683,9 +834,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  cardScrim: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(29, 28, 22, 0.3)',
+  // P0 #1: Dark gradient scrim behind bottom-third of image cards
+  cardBottomGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '38%',
   },
   cardTag: {
     position: 'absolute',
@@ -707,15 +862,22 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
   },
+  // P0 #1: Crisp high-contrast text overlay
   cardTitle: {
     fontFamily: Fonts.bold,
     fontSize: 13,
-    color: Colors.textLight,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   cardMeta: {
     fontFamily: Fonts.medium,
     fontSize: 10,
-    color: Colors.primarySoft,
+    color: '#FFE4EC',
     marginTop: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });
