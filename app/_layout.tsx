@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -14,8 +14,9 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
+function RootNavigation() {
+  const { loading: authLoading } = useAuth();
+  const [fontsLoaded, fontError] = useFonts({
     'Mali-Regular': require('@/assets/fonts/Mali-Regular.ttf'),
     'Mali-Medium': require('@/assets/fonts/Mali-Medium.ttf'),
     'Mali-SemiBold': require('@/assets/fonts/Mali-SemiBold.ttf'),
@@ -26,28 +27,43 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (loaded || error) {
+    // Hide native splash screen once fonts have loaded and initial auth session is confirmed
+    if ((fontsLoaded || fontError) && !authLoading) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [loaded, error]);
+  }, [fontsLoaded, fontError, authLoading]);
 
-  if (!loaded && !error) {
+  // Safety fallback: ensure splash screen hides within 3s even if network or storage is delayed
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
+    <ThemeProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="detail" options={{ headerShown: false }} />
+        <Stack.Screen name="camera" options={{ headerShown: false }} />
+        <Stack.Screen name="auth" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+      </Stack>
+      <StatusBar style="dark" />
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <SafeAreaProvider>
       <AuthProvider>
-        <ThemeProvider>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="detail" options={{ headerShown: false }} />
-            <Stack.Screen name="camera" options={{ headerShown: false }} />
-            <Stack.Screen name="auth" options={{ presentation: 'modal', headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          </Stack>
-          <StatusBar style="dark" />
-        </ThemeProvider>
+        <RootNavigation />
       </AuthProvider>
     </SafeAreaProvider>
   );

@@ -64,7 +64,7 @@ export default React.memo(function TemplateFeedCard({
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.title}
           </Text>
-          <Text style={styles.cardDesc} numberOfLines={2}>
+          <Text style={styles.cardDesc} numberOfLines={1}>
             {item.description}
           </Text>
 
@@ -90,10 +90,12 @@ export default React.memo(function TemplateFeedCard({
               style={[styles.saveButton, isSaved && styles.saveButtonActive]}
               onPress={() => onToggleSave(item.id)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={isSaved ? "Remove from bookmarks" : "Save guide"}
             >
               <Ionicons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
-                size={14}
+                size={15}
                 color={isSaved ? Colors.primaryDark : Colors.textSecondary}
               />
             </TouchableOpacity>
@@ -198,9 +200,9 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   saveButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',

@@ -3,6 +3,7 @@ import { Dimensions, Animated, Platform } from 'react-native';
 import { CameraView } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -268,6 +269,9 @@ export function useCameraControls({
           if (mediaPermission && Platform.OS !== 'web') {
             await MediaLibrary.saveToLibraryAsync(finalPhotoUri);
           }
+          if (Platform.OS !== 'web') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          }
         }
       } catch (err) {
         console.warn('Take picture error:', err);
@@ -285,12 +289,19 @@ export function useCameraControls({
   const capturePhoto = useCallback(() => {
     if (isCapturing) return;
 
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    }
+
     if (timerMode > 0) {
       setCountdown(timerMode);
       let current = timerMode;
       const interval = setInterval(() => {
         current -= 1;
         if (current > 0) {
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          }
           setCountdown(current);
         } else {
           clearInterval(interval);

@@ -1,4 +1,4 @@
-vimport React from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Tabs, router } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';

@@ -314,7 +314,7 @@ export default function TemplateDetailScreen() {
             />
             <View style={styles.canvasScrim} />
 
-            {/* Rule of Thirds Grid Lines */}
+            {/* Rule of Thirds Grid Lines with Contrast Shadow Backing */}
             {showGrid && (
               <Svg
                 width="100%"
@@ -322,42 +322,17 @@ export default function TemplateDetailScreen() {
                 viewBox="0 0 100 100"
                 style={StyleSheet.absoluteFill}
               >
-                <SvgLine
-                  x1="33.3"
-                  y1="0"
-                  x2="33.3"
-                  y2="100"
-                  stroke="rgba(254, 249, 240, 0.45)"
-                  strokeWidth="0.6"
-                  strokeDasharray="2, 2"
-                />
-                <SvgLine
-                  x1="66.6"
-                  y1="0"
-                  x2="66.6"
-                  y2="100"
-                  stroke="rgba(254, 249, 240, 0.45)"
-                  strokeWidth="0.6"
-                  strokeDasharray="2, 2"
-                />
-                <SvgLine
-                  x1="0"
-                  y1="33.3"
-                  x2="100"
-                  y2="33.3"
-                  stroke="rgba(254, 249, 240, 0.45)"
-                  strokeWidth="0.6"
-                  strokeDasharray="2, 2"
-                />
-                <SvgLine
-                  x1="0"
-                  y1="66.6"
-                  x2="100"
-                  y2="66.6"
-                  stroke="rgba(254, 249, 240, 0.45)"
-                  strokeWidth="0.6"
-                  strokeDasharray="2, 2"
-                />
+                {/* Dark contrasting under-stroke (ensures visibility on high-key / bright backgrounds) */}
+                <SvgLine x1="33.3" y1="0" x2="33.3" y2="100" stroke="rgba(20, 18, 16, 0.45)" strokeWidth="1.2" />
+                <SvgLine x1="66.6" y1="0" x2="66.6" y2="100" stroke="rgba(20, 18, 16, 0.45)" strokeWidth="1.2" />
+                <SvgLine x1="0" y1="33.3" x2="100" y2="33.3" stroke="rgba(20, 18, 16, 0.45)" strokeWidth="1.2" />
+                <SvgLine x1="0" y1="66.6" x2="100" y2="66.6" stroke="rgba(20, 18, 16, 0.45)" strokeWidth="1.2" />
+
+                {/* Crisp high-visibility dashed overlay (ensures visibility on dark shadows & midtones) */}
+                <SvgLine x1="33.3" y1="0" x2="33.3" y2="100" stroke="rgba(255, 255, 255, 0.95)" strokeWidth="0.75" strokeDasharray="3, 2" />
+                <SvgLine x1="66.6" y1="0" x2="66.6" y2="100" stroke="rgba(255, 255, 255, 0.95)" strokeWidth="0.75" strokeDasharray="3, 2" />
+                <SvgLine x1="0" y1="33.3" x2="100" y2="33.3" stroke="rgba(255, 255, 255, 0.95)" strokeWidth="0.75" strokeDasharray="3, 2" />
+                <SvgLine x1="0" y1="66.6" x2="100" y2="66.6" stroke="rgba(255, 255, 255, 0.95)" strokeWidth="0.75" strokeDasharray="3, 2" />
               </Svg>
             )}
 
@@ -597,9 +572,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   canvasToggle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
