@@ -1,0 +1,11 @@
+name: Better Design MCP
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: better-design
+    type: streamable-http
+    url: https://better-design.com/api/mcp
+    requestOptions:
+      headers:
+        Authorization: "Bearer bd_live_x2HbKXt45NbkG8pOhFR5ERdwJGgx9D5L"
+        X-Better-Design-Client: "continue"

@@ -79,12 +79,25 @@ export const Colors = {
 
 
 export const Fonts = {
-  regular: 'Mali-Regular',
-  medium: 'Mali-Medium',
-  semiBold: 'Mali-SemiBold',
+  // Editorial Display & Branding (Signature Mali handwriting for hero titles & editorial moments)
+  display: 'Mali-Bold',
+  displaySemi: 'Mali-SemiBold',
+  displayRegular: 'Mali-Regular',
+
+  // Crisp platform typography for body text, numbers, metrics, badges, inputs, buttons
+  sans: Platform.select({ ios: 'System', default: 'sans-serif' }),
+  sansMedium: Platform.select({ ios: 'System', default: 'sans-serif-medium' }),
+  sansBold: Platform.select({ ios: 'System', default: 'sans-serif' }),
+
+  // Standard token mappings:
+  // - Body, metadata, labels, and microcopy use clean sans for maximum legibility and scanability
+  regular: Platform.select({ ios: 'System', default: 'sans-serif' }),
+  medium: Platform.select({ ios: 'System', default: 'sans-serif-medium' }),
+  semiBold: Platform.select({ ios: 'System', default: 'sans-serif-medium' }),
+  // - Titles and headlines retain the editorial brand character
   bold: 'Mali-Bold',
-  extraLight: 'Mali-ExtraLight',
-  light: 'Mali-Light',
+  extraLight: Platform.select({ ios: 'System', default: 'sans-serif-light' }),
+  light: Platform.select({ ios: 'System', default: 'sans-serif-light' }),
   italic: 'Mali-Italic',
 };
 

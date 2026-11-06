@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { Colors, Fonts } from '@/constants/theme';
 import { Template } from '@/src/data/templates';
 import { FilterCategoryType } from '@/src/constants/categories';
+import FeedSkeleton from './FeedSkeleton';
 
 interface FeedHeaderProps {
   loading: boolean;
@@ -39,13 +40,8 @@ export default function FeedHeader({
 }: FeedHeaderProps) {
   return (
     <>
-      {/* Loading Initial State */}
-      {loading && !refreshing && (
-        <View style={styles.initialLoadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primaryDark} />
-          <Text style={styles.initialLoadingText}>Fetching curated studio guides...</Text>
-        </View>
-      )}
+      {/* Loading Initial State: Editorial Shimmer Skeleton */}
+      {loading && !refreshing && <FeedSkeleton />}
 
       {/* Error State with Retry Button */}
       {error && !loading && (
